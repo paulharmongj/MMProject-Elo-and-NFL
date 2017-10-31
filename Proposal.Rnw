@@ -1,0 +1,188 @@
+
+
+\documentclass{article}
+
+\usepackage{setspace}
+
+
+\usepackage[letterpaper, margin=1in]{geometry}
+\usepackage{titling}
+
+\setlength{\droptitle}{-10em}
+
+
+
+\begin{document}
+\title{STAT 448: Project Proposal}
+\author{Paul Harmon}
+	
+\maketitle
+\doublespacing
+
+<<initial_chunk, echo = FALSE, include = FALSE>>=
+library(dplyr)
+library(ggplot2)
+
+#gets the data from GITHUB
+library(readr)
+x <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/nfl-elo-game/master/data/nfl_games.csv")
+
+library(dplyr)
+
+x_new <- dplyr::filter(x, season > 2001) #filters out anything before 2002, when Texans joined the league
+den <- dplyr::filter(x, team1 == "DEN" | team2 == "DEN") # 
+
+
+#visualize league histories
+library(ggplot2)
+ggplot(den) + geom_point(aes(x = 1:nrow(den),y = elo1), color = "orange") + geom_line(aes(x = 1:nrow(den),y = elo1), color = "blue3") 
+
+
+#lets see if we can get the data into the right form.
+#want TEAM, GAME, ELO
+
+#mutate some new columns
+x_1 <- x_new[,c("date","season","team1","elo1","playoff")]
+x_2 <- x_new[,c("date","season","team2","elo2","playoff")]
+names(x_1) <- names(x_2) <- c("date","season","team","elo","playoff")
+x_full <- rbind(x_1,x_2)
+
+#remove playoff games
+x_np <- arrange(dplyr::filter(x_full, playoff == 0), date)
+x_np$teamyear <- interaction(x_np$season,x_np$team)
+
+#Plot of Denver Elos
+plot(x_np$date[x_np$team == "DEN"],x_np$elo[x_np$team == "DEN"], type = "p", xlab = "Year", ylab = "ELO", pch = 20, col = "orange2")
+library(mgcv)
+den.dat <- x_np[x_np$team == "DEN",]
+gam1 <- gam(elo ~ s(as.numeric(date), k = 16), data = den.dat) #tensor product
+gam2 <- gam(elo ~ s(as.numeric(date), k = 16, bs = "cs"), data = den.dat) #cubicshrinkage
+gam3 <- gam(elo ~ s(as.numeric(date), k = 16, bs = "ds"), data = den.dat)
+gam4 <- gam(elo ~ s(as.numeric(date), k = 16, bs = "cr"), data = den.dat)
+
+gamm1 <- gamm(elo ~ s(as.numeric(date), k = 16, bs = "cs"), random = , data = den.dat)
+
+lines(den.dat$date, predict(gam1), col = "blue3", lwd = 2)
+lines(den.dat$date, predict(gam2), col = "red", lwd = 2, lty = 3)
+lines(den.dat$date, predict(gam3), col = "pink", lwd = 2, lty = 4)
+lines(den.dat$date, predict(gam4), col = "purple", lwd = 2, lty = 2)
+
+legend('bottomright', legend = c("TP","CS","DS","CR"), fill = c("blue3","red","pink","purple"))
+
+title("Long-Term Trend:ELO RATINGS FOR DENVER BRONCOS")
+
+
+#some commentary: it looks like these are, in a certain sense, marginal models for the average
+#elo of the team during a given year. 
+x_np <- filter(x_np, team %in%c("DEN","OAK","DAL"))
+ggplot(x_np) + geom_line(aes(x = as.numeric(date), y = elo)) + facet_grid(facets = ~season)
+
+
+
+
+@
+
+
+
+
+\section{Introduction}
+
+I am interested in analyzing historical Elo ratings for NFL teams historically. FiveThirtyEight uses Elo ratings to quantify the strength of a particular team in any head-to-head matchup in the NFL; teams with higher Elo ratings are expected to beat those with lower Elo scores.  For instance, if the Denver Broncos' Elo rating is 1400, and the Oakland Raiders' rating is 1375, the Broncos would be picked to win. Over time, NFL team strength has been non-constant, meaning that the best team in 2005 might not be better than the best team in 2015. Elo ratings were initially developed for chess matches and they do not need much information to be calculated; these are simple ratings of teams but they generally do well in predicting game outcomes. Elo ratings are updated after every game so a team that outperforms expectations will gain Elo points after an unexpected win. 
+
+\subsection{Research Questions and Methodology}
+
+I'm curious to compare within-season dynamics of teams after controlling for long-term yearly variation in team quality. Since 2002, have some teams consistently out-performed initial expectations by winning more than expected, or have some teams consistently disappointed by dropping in predicted quality? The method I intend to use to answer these questions is to compare functional patterns within each year for each team. As such, I will use GAMs to smooth the 16-game long Elo curve for each team in each season and then try to classify Team/Year combinations into multiple groups. At the end of the analysis, I want to  identify, for instance, that the 2011 Broncos were "overachievers" and the 2016 Minnesota Vikings were "underachievers" based on their Elo patterns - Figure 2 in the appendix shows a plot of what I expect these would look like (not the real data).  
+
+Although this gets into some more functional analysis stuff than we covered in Mixed Models, this hinges on using GAM-smoothed estimates of within-season Elo patterns to do clustering. 
+
+
+
+\subsection{The Data}
+
+The data are available on FiveThirtyEight's Github repository. After doing some data cleaning, I have a dataset that contains the variables of interest: Year, Elo rating per game, and Team. The data contain Elo ratings for all 32 NFL teams throughout the league's history.However, since some of the historical teams in the dataset no longer exist, I am only interested in looking at the data pertaining to teams and games since the Houston Texans joined the league in 2002. 
+
+Elo ratings are scored from a baseline of 1300; the minimum Elo in the dataset was 1120 and the maximum was 1849. There are 32 teams in the NFL and the dataset contains information for 15 seasons, each with 16 regular-season games. There are no missing observations, meaning that n = 7680. 
+
+
+\begin{table}[]
+	\centering
+	\caption{NFL Elo Data Characteristics}
+	\label{my-label}
+	\begin{tabular}{|l|l|l|l|l|}
+	\hline
+	\toprule
+		\textbf{Var}  &\textbf{Type} & \textbf{n}  \\ \hline
+	\leftrule	
+		Year   & Categorical & 15\\
+		Game  & Quantitative (time)  &16 \\
+		Elo   &  Quantitative& 7680  \\
+		Team & Categorical & 32\\
+		\hline
+	\end{tabular}
+\end{table}
+
+\section{Model}
+Right now the model would look something like the following:
+	\begin{equation}
+	Y_i = \beta_0 + s(WEEK_i) + Year_{i,j} 
+	\end{equation}
+	
+Y refers to the predicted Elo, the main predictor is a smooth function of within-season weeks, and a random intercept term accounts for between season differences. It may be worthwhile to go farther than just a random intercept model - but this is a good starting point. Team scores are normalized at the start of every season with some corrections made to shrink team Elos towards the mean - this is why I think it might be better to estimate within-season means rather than treating each year as continuous. Figure 1 shows the long-term trend with dots representing each game during each season for one NFL team. 
+
+	
+\section{Conclusions}
+
+While one could model linear regressions and look at a long-term trend in Elo, the cyclical nature of the data mean that in the long run, most teams would look pretty flat. Considering the inherent grouping of observations by including year-level random effects is also useful, as is the use of GAMS to smooth out a general trend during each season for each team. We might even want to consider modeling covariances between teams within a season, although that may be hard to determine. 
+
+However, I think that this project seems reasonable. It involves aspects of mixed models, hierarchical data, and includes some forays into functional data analysis that would be interesting as well.  
+
+
+
+
+<<LongTerm Plot, fig.cap = "Plot of Long-Term Trend", echo = FALSE, fig.width = 8, fig.height =4, message = FALSE, warning = FALSE, fig.pos = 'center' >>=
+#Plot of Denver Elos
+plot(x_np$date[x_np$team == "DEN"],x_np$elo[x_np$team == "DEN"], type = "p", xlab = "Year", ylab = "ELO", pch = 20, col = "orange2")
+library(mgcv)
+den.dat <- x_np[x_np$team == "DEN",]
+gam1 <- gam(elo ~ s(as.numeric(date), k = 16), data = den.dat) #tensor product
+gam2 <- gam(elo ~ s(as.numeric(date), k = 16, bs = "cs"), data = den.dat) #cubicshrinkage
+gam3 <- gam(elo ~ s(as.numeric(date), k = 16, bs = "ds"), data = den.dat)
+gam4 <- gam(elo ~ s(as.numeric(date), k = 16, bs = "cr"), data = den.dat)
+
+gamm1 <- gamm(elo ~ s(as.numeric(date), k = 16, bs = "cs"), random = , data = den.dat)
+
+lines(den.dat$date, predict(gam1), col = "blue3", lwd = 2)
+lines(den.dat$date, predict(gam2), col = "red", lwd = 2, lty = 3)
+lines(den.dat$date, predict(gam3), col = "pink", lwd = 2, lty = 4)
+lines(den.dat$date, predict(gam4), col = "purple", lwd = 2, lty = 2)
+
+legend('bottomright', legend = c("TP","CS","DS","CR"), fill = c("blue3","red","pink","purple"))
+
+title("Long-Term Trend:Elo Ratings for a Single Team (Denver Broncos)")
+@
+
+<<PossibleMedoids, include = TRUE, fig.cap = "Possible Representative within-season curves", echo = FALSE, fig.width = 4, fig.height = 3, fig.pos = 'center'>>=
+fake_elo_1 <- seq(1298,1460, by = (1460-1298)/15) + rnorm(16,0,25)
+fake_elo_2 <- seq(1350,1250,by = (-100/15)) + rnorm(16,0,20)
+df.fake <- data.frame(cbind(1:16,fake_elo_1, fake_elo_2))
+ggplot(df.fake) + geom_smooth(aes(x = V1, y = fake_elo_1),fill = NA, col = "orange", size =2) + 
+  geom_smooth(aes(x = V1, y = fake_elo_2),fill = NA, col = "purple", size =2) + xlab("Game") +
+  ylab("Elo") + ggtitle("Fake Smoothed Trend") + theme_bw() + 
+  annotate( 'text',x = 2, y = 1500, label = "2016 Vikings",color = "purple", size =3) + 
+  annotate( 'text',x = 2.1, y = 1450,label = '2011 Broncos', color = 'orange', size = 3)
+
+@
+
+
+
+\end{document}
+
+
+
+
+
+
+
+
+
+
