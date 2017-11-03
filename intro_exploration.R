@@ -46,21 +46,51 @@ lines(den.dat$date, predict(gam4), col = "purple", lwd = 2, lty = 2)
 
 legend('bottomright', legend = c("TP","CS","DS","CR"), fill = c("blue3","red","pink","purple"))
 
-title("ELO RATINGS FOR DENVER BRONCOS")
+title("Long-Term Trend:ELO RATINGS FOR DENVER BRONCOS")
 
 
 #some commentary: it looks like these are, in a certain sense, marginal models for the average
 #elo of the team during a given year. 
-x_np <- filter(x_np, team %in%c("DEN","OAK","DAL"))
-ggplot(x_np) + geom_line(aes(x = as.numeric(date), y = elo)) + facet_grid(facets = ~season)
+x_DOD <- filter(x_np, team %in%c("DEN","OAK","DAL"))
+ggplot(x_DOD) + geom_line(aes(x = as.numeric(date), y = elo)) + facet_grid(facets = ~season)
+
+
+#try and produce a matplot
 
 
 
+##Aggregate by team and get mean elos
+mean_elos <- aggregate(x_np$elo, by = list(factor(x_np$team)),mean)
+sd_elos <- aggregate(x_np$elo, by = list(factor(x_np$team)),sd)
+
+library(xtable)
+elo.df <- cbind(mean_elos,sd_elos[,2])
+xtable(elo.df)
+pander(elo.df)
 
 
+#Try to create a "long" dataset
+#Structure - Observations of every game for each year for each team as rows
+x_sort <- arrange(x_np, teamyear) #sort so I can add a game indicator by team/game
+x_sort$GAME <- rep(c(1:16),32*15) #adds a game indicator for each variable
 
+write.csv(x_sort,"elo.long.csv")
+#that game variable will become a column
+library(tidyr)
+x_wide <- x_sort[,c(2,3,4,7)]%>% spread(key = GAME, value = elo)
 
+##FOR KICKS, TRY FITTING MIXED MODELS
+#want data in the long form so go with x_np
+library(lme4)
+lmer1 <- lmer(elo ~ 1 + (1|season), data = x_np)
+#note that this really isn't the question of interest
 
+#produce plots of gamms
+library(mgcv)
+season.list <- list("season")
+gamm1 <- gamm(elo ~ team, random = list(season = ~1), data = x_np)
+plot(fitted(gamm1$lme),resid(gamm1$lme),col = factor(x_np$team)) 
+#fits the fitted values based solely on team
 
 
 
