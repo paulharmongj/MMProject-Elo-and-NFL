@@ -78,6 +78,26 @@ write.csv(x_sort,"elo.long.csv")
 #that game variable will become a column
 library(tidyr)
 x_wide <- x_sort[,c(2,3,4,7)]%>% spread(key = GAME, value = elo)
+#we have a wide dataset, can i fit gam to each season
+game <- 1:16
+
+x <- gam(unlist(x_wide[1,-c(1,2)])~s(game, k=4), bs = 'cs')
+
+gam_Wide <- function(vector, gam.type = 'cs', max.df = 4){
+  #create game variable
+  game <- 1:16
+  #takes a wide dataset (remove name and year first)
+  x <- gam(unlist(vector) ~ s(game, k = max.df))
+  
+return(x)}
+
+apply(x_wide[,-c(1,2)],1,gam_Wide)
+
+
+
+
+
+
 
 ##FOR KICKS, TRY FITTING MIXED MODELS
 #want data in the long form so go with x_np
@@ -92,7 +112,15 @@ gamm1 <- gamm(elo ~ team, random = list(season = ~1), data = x_np)
 plot(fitted(gamm1$lme),resid(gamm1$lme),col = factor(x_np$team)) 
 #fits the fitted values based solely on team
 
+#model-based clustring based on each gam fit
+library(mclust)
+gam_funk <- function(vec){
+  elo <- as.numeric(vec[-c(1,2)]) #removes the year and team name
+  time <- seq(1,16,by =1)
+  predicted <- predict(gam(elo ~ s(time,bs = 'cs')))
+return(list(pred = predicted, gam = gam(elo ~ s(time,bs = 'cs'))))}
 
+pred.gam <- apply(x_wide,1,gam_funk)
 
 
 
