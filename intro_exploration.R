@@ -91,12 +91,63 @@ gam_Wide <- function(vector, gam.type = 'cs', max.df = 4){
   
 return(x)}
 
-apply(x_wide[,-c(1,2)],1,gam_Wide)
+gam_list <- apply(x_wide[,-c(1,2)],1,gam_Wide) #returns a list of the stuff you need
+names(gam_list) <- interaction(x_wide$season,x_wide$team)
+
+#let's make a data frame of predicted gams
+pred_mat <- matrix(0, nrow = length(gam_list), ncol = 16)
+for(j in 1:length(gam_list)){
+pred_mat[j,] <- predict(gam_list[[j]])  
+}
+rownames(pred_mat) <- names(gam_list)
+
+
+#create dissimilarity matrix via R-package (although below might be interesting as well)
+#uses L2 norm (Euclidean distances) but I'd be curious about Mahalonobis distances as well
+library(fda.usc)
+gam_distances <- metric.lp(pred_mat)
+
+#let's go ahead and try some hierarchical clustering
+library(mclust)
+
+CF <- hclust(dist(gam_distances), method = 'ward.D2')
+plot(CF)
+
+tree_cut <- cutree(CF, k = 4)
+table(tree_cut)
+
+#let's take a look at representatives from each cluster 
+
+which(tree_cut == 1)[1]
+which(tree_cut == 2)[1]
+which(tree_cut == 3)[1]
+which(tree_cut == 4)[1]
+
+#make a quick data frame
+which(rownames(pred_mat)== '2002.CAR')
+
+#make a data.frame
 
 
 
 
+#OK, now we have gams for each team in each year. Can we estimate dissimilarities?
+#it would be nice to get the square root of the integrated distance: 
+#ie. sqrt[(int1..16(fit.1 -fit.2))^2]
 
+preds <- predict(gam_list[[1]])
+plot(1:16, preds, ylim = c(0, max(preds)), type = 'l')
+x <- runif(10000,0,16)
+y <- runif(10000,0,1500)
+points(x,y)
+
+#do it via monte carlo integration
+MC_integrate <- function(gam.fit){
+  runif()
+}
+
+#wait, there might be an easier way to do this than how I'm trying to do it
+metric.lp(predict(gam_list[[1]]), predict(gam_list[[2]]))
 
 
 ##FOR KICKS, TRY FITTING MIXED MODELS
