@@ -1,0 +1,195 @@
+\documentclass{article}
+
+\usepackage{setspace}
+
+
+\usepackage[letterpaper, margin=1in]{geometry}
+\usepackage{titling}
+
+\setlength{\droptitle}{-10em}
+
+
+
+\begin{document}
+\title{STAT 448: Project Proposal}
+\author{Paul Harmon}
+	
+\maketitle
+\doublespacing
+
+\begin{document}
+\section{Introduction}
+The regular season in the NFL is a grinding stretch of nearly four months, testing the mettle of the 32 teams, coaching staffs, and fan bases from early September all the way to the end of December. During that stretch, the fortunes of teams can change drastically from their intial expectations and projections.  Media and fan-based expectations of teams may be high going into Week 1 of the NFL season, only to plunge after a few disappointing losses cause a team's playoff hopes to spiral out of control.  
+
+\subsection{Great Lakes Analytics in Sports Conference}
+
+This paper is written for submission to the Great Lakes Analytics in Sports Conference, and is intended to inform methods for sports analytics used both by academics and practitioners alike. In the spirit of the editorial board of the Journal of Sports Analytics, which comprises statistics professors, sports teams' analytics departments, and other sports-related data scientists, this paper is written for an audience of practitioners and researchers, and should be approachable for even a layperson to read. 
+
+https://www.uwsp.edu/cols/Pages/GLASC/analyticsconference.aspx
+
+\subsection{Elo Ratings and the NFL}
+
+To understand how NFL teams perform during the season, we need some metric of team quality for meaningful comparisons to be made. Most sports outlets, including ESPN and FiveThirtyEight, among others, develop "Power Rankings" which can be based either on an author's subjective opinion (the so-called "Eye Test") or on objective data from the games each team has played. Some Power rankings are based on complex algorithms; however, FiveThirtyEight's Elo ranking may be the simplest and the best. 
+
+Elo ratings, named for their creator, Arpad Elo, were originally developed in the 1950s for ranking of Chess Players \cite{glickman}.  They have since become popular in many rating-based venues, including the social sciences and, more importantly, sports analytics.  In general, an Elo rating calculates a numerical rating for participants based on their previous performance and updates it with each additional game or match \cite{glickman}. The general formula for FiveThirtyEight's calculation of NFL Elo rankings is given below \cite{}:
+\begin{equation*}
+R_t = = R_{t-1}+ K*V*M_{ij}(S_{ij}-\mu_{ij})
+\end{equation*}
+
+$R_t$ is the Elo rating at game t, expressed as a function of the previous Elo rating, the per-game weight k, the and Margin of Victory correction V. The function $M_{ij}(S_{ij}-\mu_{ij})$ calculates whether or not a team's Elo rating should increase based on the previous result $S_{ij}$ and the expected result based on the previous Elo rankings \cite{blog}. Thus, a team that upsets a better-perceived team will get a bigger boost to its Elo ranking than a team that wins a game that it was expected to beat. FiveThirtyEight developed Elo ratings for most major sports including the NFL. Head-to-head matchups between NFL teams and uses those ratings to predict game outcomes as well as measure relative NFL team strength \cite{silver}. 
+
+During each season, teams start the year with an initial Elo rating that is representative of the initial expectations for the team and then update it after each game is played. These initial values are based on each team's Elo rating from the year before with a correction that reverts the previous year's record to the mean by one-third \cite{Silver}. Because the teams' ratings are automatically reset by being reverted towards the mean at the beginning of each year, a team's Elo rating is not continuous from one year to the next.  Moreover, fundamental changes may occur during the off-season period between seasons as teams change coaching personnel, ownership, and player personnel, so it is more of interest to examine within-season behavior rather than the macro-level trend of a team over several years of data.  
+
+\subsection{Interpretability of Elo Ratings}
+
+Elo ratings are just one of many ways to measure a given team's relative strength; however, they are preferable for several reasons. First, they do not require much information to calculate.  The weighting factor K for the NFL is 20, giving more weight to any NFL game than for other sports with longer than 16-game seasons \cite{silver}.  Furthermore, the difference in two ratings can be interpreted as a point-spread for the game by taking the difference between the two teams and dividing by 25 \cite{silver}. A team's pre-game probability of winning can be computed using Elo as well. 
+
+\subsection{Why Should We Care? (Research Questions)}
+
+The central research question addressed in this analysis is as follows: Can team behavior be categorized into sevaral groups based on whether teams "overachieve" or "underachieve" during a given season? Which teams in given years have performed similarly to teams in a current year? This would especially be important if we found that teams' classifications after, for instance, 8 games was enough to classify them over the entire season. It may be that since teams have incentive to continue losing at the end of the seasonn, in order to obtain a higher draft pick in the following off-season, that the final four games are not as important for classification as those at the beginning of the season.  
+
+
+\section{Elo Ratings by Season}
+\subsection{The Data}
+The data were obtained from FiveThirtyEight's repository on Elo ratings and can be obtained from the following url: https://github.com/fivethirtyeight/nfl-elo-game. For each season, each of the 32 NFL teams has an Elo rating assigned. The available data go back to the 1920 season (the NFL's first), but I constrained this analysis only to the years since the Houston Texans joined the League in 2002. 
+
+Therefore, there are 15 years worth of Elo ratings for each team with 16 games per season per team, giving 7680 individual Elo ratings on which the 480 sesaon/team combinations are measured. The data are \textit{functional data} because each team-year combination has 16 noisy observations of a continuous, semi-observed underlying process with domain \mathcal{L}.  
+
+Table 1 shows the mean and standard deviations for each of the 32 NFL teams since 2002.  Marginally, the best team has been the New England Patriots, whose 1665 average is more than 165 points above the constructed average Elo rating of 1500. Meanwhile, the poorest team over the past 15 years, on average, was the Cleveland Browns, with an average rating of about 1411. The mean Elo overall was close to what Nate Silver claimed, at 1503. 
+
+% latex table generated in R 3.4.2 by xtable 1.8-2 package
+% Mon Dec 04 10:56:47 2017
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlrr}
+  \hline
+ & Group.1 & x & sd\_elos[, 2] \\ 
+  \hline
+1 & ARI & 1466.20 & 96.53 \\ 
+  2 & ATL & 1514.75 & 75.29 \\ 
+  3 & BAL & 1556.82 & 58.80 \\ 
+  4 & BUF & 1475.79 & 50.49 \\ 
+  5 & CAR & 1503.91 & 80.86 \\ 
+  6 & CHI & 1494.22 & 72.65 \\ 
+  7 & CIN & 1500.66 & 88.70 \\ 
+  8 & CLE & 1411.08 & 52.59 \\ 
+  9 & DAL & 1520.59 & 65.72 \\ 
+  10 & DEN & 1562.55 & 89.35 \\ 
+  11 & DET & 1417.12 & 85.84 \\ 
+  12 & GB & 1575.36 & 78.56 \\ 
+  13 & HOU & 1454.69 & 94.52 \\ 
+  14 & IND & 1583.12 & 102.55 \\ 
+  15 & JAX & 1437.99 & 99.73 \\ 
+  16 & KC & 1494.32 & 98.19 \\ 
+  17 & LAC & 1535.66 & 81.21 \\ 
+  18 & LAR & 1434.68 & 88.48 \\ 
+  19 & MIA & 1482.12 & 59.58 \\ 
+  20 & MIN & 1497.33 & 61.95 \\ 
+  21 & NE & 1665.05 & 55.79 \\ 
+  22 & NO & 1525.53 & 79.28 \\ 
+  23 & NYG & 1523.61 & 66.22 \\ 
+  24 & NYJ & 1496.84 & 67.80 \\ 
+  25 & OAK & 1420.34 & 86.46 \\ 
+  26 & PHI & 1553.37 & 71.80 \\ 
+  27 & PIT & 1585.42 & 57.87 \\ 
+  28 & SEA & 1536.45 & 93.94 \\ 
+  29 & SF & 1474.99 & 110.91 \\ 
+  30 & TB & 1471.75 & 83.03 \\ 
+  31 & TEN & 1479.76 & 94.25 \\ 
+  32 & WSH & 1453.02 & 54.56 \\ 
+   \hline
+\end{tabular}
+\end{table}
+
+\section{Smoothing Estimates with GAMS}
+\subsection{Why Smooth?}
+Smoothing functional data such as the NFL Elo ratings has proven to be useful in several applications. For cluster analysis, n identifying underlying clusters in the data \cite{hitchclust}. Further, research has shown that a pre-smoothed, James-Stein shrinkage-based estimator dominates observed data in identifying dissimilarities between functional data \cite{hitchdis}. These are both useful for this application because the observations, especially at the beginning of the year, tend to be fairly noisy. 
+
+
+\subsection{Generalized Additive Models for Clusters}
+
+Generalized Additive Models, or GAMs, are a common and useful tool for smoothing data. As opposed to linear regression, which fits a linear relationship to the data, a GAM fits a smooth function to the data. This allows for increased wiggliness that can be achieved without using as many degrees of freedom as a complex polynomial regression model. GAMs allow for parsimounious smoothing of noisy functional data that better fits the wiggly time trend in the data over time, as shown in Figure 2 below. 
+
+__INCLUDE PLOT OF LINEAR TREND VS GAM-SMOOTHED ESTIMATE FOR DENVER BRONCOS 2011 SEASON__
+
+For each team in a given year, the model for smoothed Elo ratings is as follows, where the subscript i refers to the ith team, j refers to the jth year between 2002 and 2015, and k refers to the game in that season, taking the values 1 to 16.  A team's Elo rating at any point in a season is expressed as a smooth function of time with 16 EDF. 
+\begin{equation*}
+ELO_{ijk} = s_{16}(game_k) + \epsilon_{ijk}
+\end{equation*}
+
+Moreover, this analysis does not fit a single GAM; rather, it fits a GAM to all 480 team-year combinations and considers each season for each team as a single curve to be analyzed. 
+
+\subsection{Smoothing Methods and Basis Functions}
+More important than 
+
+
+
+\section{Clustering}
+
+Hierarchical clustering 
+\subsection{Dissimilarity: Euclidean Distances}
+
+In order to determine differences between smoothed curves in each year 
+
+\subsection{Medoid-Based Clusters}
+\section{Discussion}
+
+
+\subsection{GAMS and Clusters}
+
+Cluster sensitivity to the GAM
+
+
+
+\subsection{Comparing Teams in Different Years}
+
+
+
+
+
+
+
+\begin{thebibliography}{9}
+\bibitem{glickman} 
+Glickman, Mark E. and Jones, Albyn (1999). 
+"Rating the Chess Rating System". 
+\textit{Chance}. pp.21-28.
+ 
+\bibitem{silver}
+Silver,Nate (2014).
+"Introducing NFL Elo Ratings"
+\\\texttt{https://fivethirtyeight.com/features/introducing-nfl-elo-ratings/}
+
+\bibitem{blog}
+Sankar, Krishna. (2015). 
+"THE ART OF NFL RANKING, THE ELO ALGORITHM AND FIVETHIRTYEIGHT"
+\texttt{https://doubleclix.wordpress.com/2015/01/20/the-art-of-nfl-ranking-the-elo-algorithm-and-fivethirtyeight/}
+ 
+\bibitem{knuthwebsite} 
+Knuth: Computers and Typesetting,
+\\\texttt{http://www-cs-faculty.stanford.edu/\~{}uno/abcde.html}
+\end{thebibliography}
+
+\bibitem{hitchclust}
+Hitchcock, David B., Casella, George, and Booth, James G. (2006).
+"Improved Estimation of Dissimilarities by Presmoothing Functional Data"
+\textit{Journal of the American Statistical Association}
+pp.211-222. 
+
+\bibitem{hitchdis}
+Hitchcock, David B., Booth, James G., and Casella, George. (2007). 
+"The Effect of Pre-Smoothing Functional Data on Cluster Analysis"
+\textit{The Journal of Statistical Computation and Simulation}
+pp. 1043-1055. 
+
+\end{document}
+
+
+
+
+
+
+
+
+
+
