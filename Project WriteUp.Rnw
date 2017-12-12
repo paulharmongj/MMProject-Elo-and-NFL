@@ -120,8 +120,14 @@ ELO_{ijk} = s_{16}(game_k) + \epsilon_{ijk}
 Moreover, this analysis does not fit a single GAM; rather, it fits a GAM to all 480 team-year combinations and considers each season for each team as a single curve to be analyzed. 
 
 \subsection{Smoothing Methods and Basis Functions}
-More important than 
+An important aspect of GAM-based smoothing is the choice of basis function. I chose from several basis functions, as listed below: 
+\begin{enumerate}
+\item Cubic Regression 
+\item 
+\item
+\end{enumerate}
 
+These methods all have slightly different properties and will affect smoothing differently. 
 
 
 \section{Clustering}
@@ -129,20 +135,26 @@ More important than
 Hierarchical clustering 
 \subsection{Dissimilarity: Euclidean Distances}
 
-In order to determine differences between smoothed curves in each year 
+In order to determine differences between smoothed curves in each year, it is necessary to calculate the distances between each team's curve.  For Elo ratings, where differences can be calculated either on a probablistic scale or calculated as a point spread, Euclidean distance makes the most sense as a dissimilarity metric. Euclidean distance, or the L2-norm, is calulated as follows:
+
+\begin{equation*}
+
+\end{equation*}
 
 \subsection{Medoid-Based Clusters}
-\section{Discussion}
+
+\section{Cluster Solutions}
+The Hierarchical Clustering solution chose __ clusters 
 
 
-\subsection{GAMS and Clusters}
+\subsection{Clusters}
 
 Cluster sensitivity to the GAM
 
 
 
-\subsection{Comparing Teams in Different Years}
-
+\subsection{Scope of Inference}
+The sample of teamyear combinations
 
 
 

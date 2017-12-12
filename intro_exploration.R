@@ -61,6 +61,7 @@ ggplot(x_DOD) + geom_line(aes(x = as.numeric(date), y = elo)) + facet_grid(facet
 
 ##Aggregate by team and get mean elos
 mean_elos <- aggregate(x_np$elo, by = list(factor(x_np$team)),mean)
+
 sd_elos <- aggregate(x_np$elo, by = list(factor(x_np$team)),sd)
 
 library(xtable)
@@ -110,7 +111,7 @@ gam_distances <- metric.lp(pred_mat)
 #let's go ahead and try some hierarchical clustering
 library(mclust)
 
-CF <- hclust(dist(gam_distances), method = 'ward.D2')
+CF <- hclust(as.dist(gam_distances), method = 'ward.D2')
 plot(CF)
 
 tree_cut <- cutree(CF, k = 4)
@@ -125,9 +126,33 @@ which(tree_cut == 4)[1]
 
 #make a quick data frame
 which(rownames(pred_mat)== '2002.CAR')
+which(rownames(pred_mat)== '2002.ATL')
+which(rownames(pred_mat)== '2002.ARI')
+which(rownames(pred_mat)== '2002.GB')
 
 #make a data.frame
+car02 <- pred_mat[5,]
+atl02 <- pred_mat[2,]
+ari02 <- pred_mat[1,]
+gb02 <- pred_mat[12,]
+df.reps <- data.frame(cbind(car02,atl02,ari02,gb02,game))
 
+#theme
+### XKCD theme
+theme_xkcd <- theme(
+  panel.background = element_rect(fill="white"), 
+  axis.ticks = element_line(colour=NA),
+  panel.grid = element_line(colour="white"),
+  axis.text.y = element_text(colour=NA), 
+  axis.text.x = element_text(colour="black"),
+  text = element_text(size=16, family="Humor Sans")
+)
+
+
+
+ggplot(df.reps) + geom_line(aes(game,car02),col = "red",size =2) + geom_line(aes(game,atl02),col = "orange",size = 2) + geom_line(aes(game,ari02),col = "green",size =2) + 
+  geom_line(aes(game,gb02),col = "blue2", size = 2) + ggtitle("Representative Teams") + 
+  theme_economist_white() + ylab("Elo Rating") + scale_x_continuous("Game",breaks = 1:16)
 
 
 

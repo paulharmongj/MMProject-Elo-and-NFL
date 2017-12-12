@@ -1,0 +1,75 @@
+---
+title: "Clustering GAM-Smoothed NFL Elo Ratings"
+author: "Paul Harmon \ Montana State University"
+date: "November 28, 2017"
+output:
+ beamer_presentation:
+  theme: "AnnArbor"
+  fig_caption: false
+  fig_height: 6
+  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(ggplot2)
+library(dplyr)
+
+
+```
+
+##Title:
+
+
+##What Are Elo Ratings
+Elo ratings are used by FiveThirtyEight to predict the outcome of head-to-head matchups between NFL teams. They were originally developed for prediction of chess matches but have been extended to sports analytics.
+
++ Very little information needed to calculate 
++ Teams with higher Elo Ratings should beat teams with lower Elo Ratings
+
+##The Data
+```{r plot_elo, include = FALSE}
+
+```
+
+
+##Repeated Measures
+Data contain 15 seasons with 16 games (observations) per season for each of the 32 NFL teams. I treat each season/team combination as independent. 
+
+```{r plot_szn, include = FALSE}
+
+```
+
+
+##GAM-Smoothed Estimates
+
+I used GAMS to estimate smooth versions of these noisy trends in Elo. Some teams started out with low expectations and exceeded them; some (like my Broncos) did the opposite. 
+
+##Functional Data Clustering
+
+##Some Conclusions
+By clustering GAM-smoothed Elo curves, we get several groups that most teams fit into. We can call these teams:
+
++ 
++
+
+```{r, fig.align = 'center', fig.width = 8, fig.height = 5}
+
+
+ggplot(df.reps) + geom_line(aes(game,car02),col = "red",size =2) + geom_line(aes(game,atl02),col = "orange",size = 2) + geom_line(aes(game,ari02),col = "green",size =2) + 
+  geom_line(aes(game,gb02),col = "blue2", size = 2) + ggtitle("Representative Teams") + 
+  theme_economist_white() + ylab("Elo Rating") + scale_x_continuous("Game",breaks = 1:16)
+
+
+```
+
+
+##References
+
+##Questions
+
+![ ](figure/siemian.jpg)
+
+
+
+
