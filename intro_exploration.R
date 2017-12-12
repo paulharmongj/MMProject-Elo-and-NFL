@@ -6,13 +6,16 @@ x <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/nfl-elo-game/ma
 
 library(dplyr)
 
+#Don't use this code, it only gets the home games played
 x_new <- dplyr::filter(x, season > 2001) #filters out anything before 2002, when Texans joined the league
-den <- dplyr::filter(x, team1 == "DEN" | team2 == "DEN") # 
+den <- dplyr::filter(x_new, team1 == "DEN")
 
 
-#visualize league histories
-library(ggplot2)
-ggplot(den) + geom_point(aes(x = 1:nrow(den),y = elo1), color = "orange") + geom_line(aes(x = 1:nrow(den),y = elo1), color = "blue3") 
+#visualize league histories but only for home games
+library(ggplot2);library(ggthemes)
+ggplot(den) + geom_point(aes(x = 1:nrow(den),y = elo1), color = "orange", size =) + 
+  geom_line(aes(x = 1:nrow(den),y = elo1), color = "blue3") + 
+  xlab("Game") + ylab("Elo Rating") + theme_economist_white()
 
 
 #lets see if we can get the data into the right form.
@@ -30,6 +33,8 @@ x_np$teamyear <- interaction(x_np$season,x_np$team)
 
 #Plot of Denver Elos
 plot(x_np$date[x_np$team == "DEN"],x_np$elo[x_np$team == "DEN"], type = "p", xlab = "Year", ylab = "ELO", pch = 20, col = "orange2")
+title("Denver Broncos Elos since 2002")
+
 library(mgcv)
 den.dat <- x_np[x_np$team == "DEN",]
 gam1 <- gam(elo ~ s(as.numeric(date), k = 16), data = den.dat) #tensor product
@@ -80,6 +85,24 @@ write.csv(x_sort,"elo.long.csv")
 library(tidyr)
 x_wide <- x_sort[,c(2,3,4,7)]%>% spread(key = GAME, value = elo)
 #we have a wide dataset, can i fit gam to each season
+x_wide$teamyear <- interaction(x_wide$season,x_wide$team)
+
+#some quick plots of GAMs for the presentation
+ggplot(filter(x_sort, teamyear %in% c('2012.DEN','2007.NE','2008.DET','2016.NE'))) + 
+  geom_line(aes(x = GAME, y = elo, group = teamyear,col = teamyear),lwd = 2) +
+  theme_bw() + xlab("Game") + ylab("Elo Rating") + ggtitle("Three Teams' Elo Ratings") + 
+  scale_color_manual(values=c("orange", "lightblue", "red","blue4"))
+
+
+
+
+
+
+
+
+
+
+
 game <- 1:16
 
 x <- gam(unlist(x_wide[1,-c(1,2)])~s(game, k=4), bs = 'cs')
@@ -101,6 +124,10 @@ for(j in 1:length(gam_list)){
 pred_mat[j,] <- predict(gam_list[[j]])  
 }
 rownames(pred_mat) <- names(gam_list)
+
+
+
+
 
 
 #create dissimilarity matrix via R-package (although below might be interesting as well)
@@ -136,18 +163,6 @@ atl02 <- pred_mat[2,]
 ari02 <- pred_mat[1,]
 gb02 <- pred_mat[12,]
 df.reps <- data.frame(cbind(car02,atl02,ari02,gb02,game))
-
-#theme
-### XKCD theme
-theme_xkcd <- theme(
-  panel.background = element_rect(fill="white"), 
-  axis.ticks = element_line(colour=NA),
-  panel.grid = element_line(colour="white"),
-  axis.text.y = element_text(colour=NA), 
-  axis.text.x = element_text(colour="black"),
-  text = element_text(size=16, family="Humor Sans")
-)
-
 
 
 ggplot(df.reps) + geom_line(aes(game,car02),col = "red",size =2) + geom_line(aes(game,atl02),col = "orange",size = 2) + geom_line(aes(game,ari02),col = "green",size =2) + 

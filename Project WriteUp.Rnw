@@ -129,7 +129,6 @@ An important aspect of GAM-based smoothing is the choice of basis function. I ch
 
 These methods all have slightly different properties and will affect smoothing differently. 
 
-
 \section{Clustering}
 
 Hierarchical clustering 

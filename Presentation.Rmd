@@ -1,13 +1,13 @@
 ---
 title: "Clustering GAM-Smoothed NFL Elo Ratings"
-author: "Paul Harmon \ Montana State University"
+author: "Paul Harmon Montana State University"
 date: "November 28, 2017"
 output:
- beamer_presentation:
-  theme: "AnnArbor"
-  fig_caption: false
-  fig_height: 6
-  
+  slidy_presentation: default
+  beamer_presentation:
+    fig_caption: no
+    fig_height: 6
+    theme: AnnArbor
 ---
 
 ```{r setup, include=FALSE}
@@ -18,32 +18,48 @@ library(dplyr)
 
 ```
 
-##Title:
 
 
-##What Are Elo Ratings
+##What Are Elo Ratings?
 Elo ratings are used by FiveThirtyEight to predict the outcome of head-to-head matchups between NFL teams. They were originally developed for prediction of chess matches but have been extended to sports analytics.
 
 + Very little information needed to calculate 
 + Teams with higher Elo Ratings should beat teams with lower Elo Ratings
++ Can be interpreted as point spreads for matchups
+
+##Project Goal
+The goal of this project is to __smooth__ season-long measurements of Elo ratings for each NFL team. Then, I'm interested in __clustering__ team-year Elos into a handful of groups.  Research by Hitchcock, Booth, and Casella (2007) indicates that smoothing, while not necessary, does improve cluster fits. 
+
+![](figure/superbowl.jpg)
+
+##Why Do We Care About Classifying Elo Ratings?
+Team decision makers may want to develop a sense for the type of team that they have, given that not all teams realistically have a chance at  winning a championship in every year. Sorry, Broncos and Browns fans...
+
++ We want to make comparisons between different teams in different seasons. 
++ Identification of team value: teams that win a lot or improve during the season may be more valuable than those that get worse or stay bad. 
+
 
 ##The Data
-```{r plot_elo, include = FALSE}
+We have __32 teams__ with 16 games per season over 15 seasons, leading to 480 curves that need to be smoothed with GAMs. Each team/year combination is considered independent. Here's some observations:
 
+```{r plot_elo, eval = FALSE}
+ggplot(filter(x_sort, teamyear %in% c('2012.DEN','2007.NE','2008.DET','2016.NE'))) + 
+  geom_line(aes(x = GAME, y = elo, group = teamyear,col = teamyear),lwd = 2) +
+  theme_bw() + xlab("Game") + ylab("Elo Rating") + ggtitle("Four Teams' Elo Ratings") + 
+  scale_color_manual(values=c("orange", "lightblue", "red","blue4"))
 ```
 
-
-##Repeated Measures
-Data contain 15 seasons with 16 games (observations) per season for each of the 32 NFL teams. I treat each season/team combination as independent. 
-
-```{r plot_szn, include = FALSE}
-
-```
 
 
 ##GAM-Smoothed Estimates
 
-I used GAMS to estimate smooth versions of these noisy trends in Elo. Some teams started out with low expectations and exceeded them; some (like my Broncos) did the opposite. 
++ Elo Ratings can be noisy! It might be better to estimate a mean trend. 
++ I used GAMS to estimate smooth versions of these noisy trends in Elo.
+
+__A Very Complicated Model: __ 
+$$ \hat{Elo}_{ij} = s_{16}(game_{ij})$$ 
+
+
 
 ##Functional Data Clustering
 
@@ -53,7 +69,7 @@ By clustering GAM-smoothed Elo curves, we get several groups that most teams fit
 + 
 +
 
-```{r, fig.align = 'center', fig.width = 8, fig.height = 5}
+```{r,eval = FALSE, fig.align = 'center', fig.width = 8, fig.height = 5}
 
 
 ggplot(df.reps) + geom_line(aes(game,car02),col = "red",size =2) + geom_line(aes(game,atl02),col = "orange",size = 2) + geom_line(aes(game,ari02),col = "green",size =2) + 
@@ -65,6 +81,30 @@ ggplot(df.reps) + geom_line(aes(game,car02),col = "red",size =2) + geom_line(aes
 
 
 ##References
+
+Glickman, Mark E. and Jones, Albyn (1999)."Rating the Chess Rating System". _Chance_. pp.21-28.
+
+Silver,Nate (2014). "Introducing NFL Elo Ratings" _https://fivethirtyeight.com/features/introducing-nfl-elo-ratings_
+
+Sankar, Krishna. (2015). "THE ART OF NFL RANKING, THE ELO ALGORITHM AND FIVETHIRTYEIGHT" _https://doubleclix.wordpress.com/2015/01/20/the-art-of-nfl-ranking-the-elo-algorithm-and-fivethirtyeight_
+ 
+Hitchcock, David B., Casella, George, and Booth, James G. (2006)."Improved Estimation of Dissimilarities by Presmoothing Functional Data." _Journal of the American Statistical Association_
+pp.211-222. 
+
+
+Hitchcock, David B., Booth, James G., and Casella, George. (2007). "The Effect of Pre-Smoothing Functional Data on Cluster Analysis." _The Journal of Statistical Computation and Simulation_. 
+pp. 1043-1055.
+
+Wood, Simon.(2017). _Generalized Additive Models: An Introduction with R_. Ed 2.Chapman and Hall/CRC. 
+
+Chris Fraley, Adrian E. Raftery, T. Brendan Murphy, and Luca Scrucca (2012) mclust Version 4
+  for R: Normal Mixture Modeling for Model-Based Clustering, Classification, and Density
+  Estimation Technical Report No. 597, Department of Statistics, University of Washington
+
+Chris Fraley and Adrian E. Raftery (2002) Model-based Clustering, Discriminant Analysis and
+  Density Estimation Journal of the American Statistical Association 97:611-631
+
+
 
 ##Questions
 
