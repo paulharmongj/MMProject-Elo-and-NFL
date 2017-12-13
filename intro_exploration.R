@@ -85,6 +85,29 @@ write.csv(x_sort,"elo.long.csv")
 library(tidyr)
 x_wide <- x_sort[,c(2,3,4,7)]%>% spread(key = GAME, value = elo)
 #we have a wide dataset, can i fit gam to each season
+
+
+
+
+game <- 1:16
+
+x <- gam(unlist(x_wide[1,-c(1,2)])~s(game, k=4), bs = 'cr')
+
+
+#let's try a couple of different functions for this: 
+
+gam_Wide <- function(vector, gam.type = 'cr', max.df = 16){
+  #create game variable
+  game <- 1:16
+  #takes a wide dataset (remove name and year first)
+  x <- gam(unlist(vector) ~ s(game, k = max.df))
+  
+return(x)}
+
+
+gam_list <- apply(x_wide[,-c(1,2)],1,gam_Wide) #returns a list of the stuff you need
+names(gam_list) <- interaction(x_wide$season,x_wide$team)
+
 x_wide$teamyear <- interaction(x_wide$season,x_wide$team)
 
 #some quick plots of GAMs for the presentation
@@ -98,34 +121,12 @@ ggplot(filter(x_sort, teamyear %in% c('2012.DEN','2007.NE','2008.DET','2016.NE')
 
 
 
-
-
-
-
-
-game <- 1:16
-
-x <- gam(unlist(x_wide[1,-c(1,2)])~s(game, k=4), bs = 'cs')
-
-gam_Wide <- function(vector, gam.type = 'cs', max.df = 4){
-  #create game variable
-  game <- 1:16
-  #takes a wide dataset (remove name and year first)
-  x <- gam(unlist(vector) ~ s(game, k = max.df))
-  
-return(x)}
-
-gam_list <- apply(x_wide[,-c(1,2)],1,gam_Wide) #returns a list of the stuff you need
-names(gam_list) <- interaction(x_wide$season,x_wide$team)
-
 #let's make a data frame of predicted gams
 pred_mat <- matrix(0, nrow = length(gam_list), ncol = 16)
 for(j in 1:length(gam_list)){
 pred_mat[j,] <- predict(gam_list[[j]])  
 }
 rownames(pred_mat) <- names(gam_list)
-
-
 
 
 
@@ -168,6 +169,10 @@ df.reps <- data.frame(cbind(car02,atl02,ari02,gb02,game))
 ggplot(df.reps) + geom_line(aes(game,car02),col = "red",size =2) + geom_line(aes(game,atl02),col = "orange",size = 2) + geom_line(aes(game,ari02),col = "green",size =2) + 
   geom_line(aes(game,gb02),col = "blue2", size = 2) + ggtitle("Representative Teams") + 
   theme_economist_white() + ylab("Elo Rating") + scale_x_continuous("Game",breaks = 1:16)
+
+ggplot(filter(x_))
+
+
 
 
 
