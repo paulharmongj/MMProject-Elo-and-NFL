@@ -80,12 +80,21 @@ pam1 <- pam(as.dist(gam_distances), metric = "euclidean", k = 4)
 ##What Are Elo Ratings?
 Elo ratings are used by FiveThirtyEight to predict the outcome of head-to-head matchups between NFL teams. They were originally developed for prediction of chess matches but have been extended to sports analytics.
 
-+ Very little information needed to calculate 
++ Easy way to dynamically rate teams in head to head matchups
 + Teams with higher Elo Ratings should beat teams with lower Elo Ratings
-+ Can be interpreted as point spreads for matchups
++ Can be interpreted as point spreads for matchups (divide difference by 25 to get spread)
++ Average Elo is 1500 for an NFL team
+
 
 ##Project Goal
 The goal of this project is to __smooth__ season-long measurements of Elo ratings for each NFL team. Then, I'm interested in __clustering__ team-year Elos into a handful of groups.  Research by Hitchcock, Booth, and Casella (2007) indicates that smoothing, while not necessary, does improve cluster fits. 
+
+```{r, fig.align = 'center', fig.width = 7, fig.height = 3}
+plot(1:16,predict(gam_list[[472]]), type = "l", xlab = "Game", ylab = "Elo", lwd = 2, col = "red3")
+points(1:16, x_wide[472,-c(1,2,19)], col = "green3", pch = 18, cex = 1.2)
+title("New York Jets 2016 Data vs. Smooth GAM")
+```
+
 
 
 
@@ -115,21 +124,32 @@ ggplot(filter(x_sort, teamyear %in% c('2012.DEN','2007.NE','2008.DET','2016.NE')
 + I used GAMS to estimate smooth versions of these noisy trends in Elo.
 
 __A Very Complicated Model: __ 
-$$ \hat{Elo}_{ij} = s_{ij}(game_{ij})$$
+$$ \hat{Elo}_{ij} = s_{i}(game_{ij})$$
 _Notationally, i refers to team/year combination (1..480) and j refers to game within season (1...16)._  
 
 + Technically, there are 480 smoothed models fit here
 + They may involve differing EDFs for each model depending on how wiggly things need to be
++ Majority of the EDF were below 5.72, with 90 percent having small p-values
+
+```{r}
+pval_get <- function(gam.object){
+  smooth_pval <- summary(gam.object)$s.pv
+  
+ return(s.pval = smooth_pval)}
+
+edf_get <- function(gam.object){
+  edf <- summary(gam.object)$edf
+  return(edf = edf)}
+
+edf_values <- sapply(gam_list, edf_get)
+summary(edf_values)
+
+p_values <- sapply(gam_list, pval_get)
+summary(p_values)
+```
 
 
-##Functional Data Clustering
-We can then take these curves and calculate distances between each of the GAM smoothers. We can generate a 4-cluster solution based on a technique called __Partitioning Around Medoids__ (PAM). 
-The Idea: 
-
-+ Determine 4 "medoid" GAM fits
-+ For each GAM, figure out which medoid is closest - that's the cluster that each observation goes in
-
-##4-Cluster Solution
+##Functional Data clustering: 4-Cluster Solution
 __Contenders__: 2010 Baltimore Ravens, __Status Quo__: 2010 Miami Dolphins, __Pretenders__: 2009 Buffalo Bills, __Loveable Losers__: 2008 Oakland Raiders
 
 ```{r,warning = FALSE, message = FALSE, eval = TRUE, fig.align = 'center', fig.width = 6, fig.height = 2.5}
@@ -188,4 +208,10 @@ legend('bottomright', legend = c("TP","CS","DS","CR"), fill = c("blue3","red","p
 pander(table(x_wide$team,pam1$clustering)[c(4,10,21,23),])
 ```
 
+##Functional Data Clustering
+We can then take these curves and calculate distances between each of the GAM smoothers. We can generate a 4-cluster solution based on a technique called __Partitioning Around Medoids__ (PAM). 
+The Idea: 
+
++ Determine 4 "medoid" GAM fits
++ For each GAM, figure out which medoid is closest - that's the cluster that each observation goes in
 
