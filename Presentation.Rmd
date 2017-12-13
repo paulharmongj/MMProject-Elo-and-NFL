@@ -1,19 +1,76 @@
 ---
 title: "Clustering GAM-Smoothed NFL Elo Ratings"
-author: "Paul Harmon Montana State University"
+author: "Paul Harmon"
 date: "November 28, 2017"
 output:
-  slidy_presentation: default
   beamer_presentation:
-    fig_caption: no
-    fig_height: 6
-    theme: AnnArbor
+    theme: "CambridgeUS"
+    colortheme: "crane"
+    fonttheme: "serif"
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 library(ggplot2)
 library(dplyr)
+library(readr); library(mgcv);library(pander)
+x <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/nfl-elo-game/master/data/nfl_games.csv")
+x_new <- dplyr::filter(x, season > 2001) #filters out anything before 2002, when Texans joined the league
+#mutate some new columns
+x_1 <- x_new[,c("date","season","team1","elo1","playoff")]
+x_2 <- x_new[,c("date","season","team2","elo2","playoff")]
+names(x_1) <- names(x_2) <- c("date","season","team","elo","playoff")
+x_full <- rbind(x_1,x_2)
+
+#remove playoff games
+x_np <- arrange(dplyr::filter(x_full, playoff == 0), date)
+x_np$teamyear <- interaction(x_np$season,x_np$team)
+
+#some commentary: it looks like these are, in a certain sense, marginal models for the average
+#elo of the team during a given year. 
+#Try to create a "long" dataset
+#Structure - Observations of every game for each year for each team as rows
+x_sort <- arrange(x_np, teamyear) #sort so I can add a game indicator by team/game
+x_sort$GAME <- rep(c(1:16),32*15) #adds a game indicator for each variable
+
+write.csv(x_sort,"elo.long.csv")
+#that game variable will become a column
+library(tidyr)
+x_wide <- x_sort[,c(2,3,4,7)]%>% spread(key = GAME, value = elo) #check it out I put in a pipe operator!
+#we have a wide dataset, can i fit gam to each season
+
+game <- 1:16
+x <- gam(unlist(x_wide[1,-c(1,2)])~s(game, k=4), bs = 'cs')
+gam_Wide <- function(vector, gam.type = 'cs', max.df = 16){
+  #create game variable
+  game <- 1:16
+  #takes a wide dataset (remove name and year first)
+  x <- gam(unlist(vector) ~ s(game, k = max.df))
+  
+return(x)}
+
+gam_list <- apply(x_wide[,-c(1,2)],1,gam_Wide) #returns a list of the stuff you need
+names(gam_list) <- interaction(x_wide$season,x_wide$team)
+x_wide$teamyear <- interaction(x_wide$season,x_wide$team)
+#let's make a data frame of predicted gams
+pred_mat <- matrix(0, nrow = length(gam_list), ncol = 16)
+for(j in 1:length(gam_list)){
+pred_mat[j,] <- predict(gam_list[[j]])  
+}
+rownames(pred_mat) <- names(gam_list)
+
+#create dissimilarity matrix via R-package (although below might be interesting as well)
+#uses L2 norm (Euclidean distances) but I'd be curious about Mahalonobis distances as well
+library(fda.usc)
+gam_distances <- metric.lp(pred_mat)
+
+#let's go ahead and try some hierarchical clustering
+library(mclust)
+#is there a way to do medoid-based clustering?
+library(cluster)
+pam1 <- pam(as.dist(gam_distances), metric = "euclidean", k = 4)
+
+#tables of clusters
 
 
 ```
@@ -30,19 +87,20 @@ Elo ratings are used by FiveThirtyEight to predict the outcome of head-to-head m
 ##Project Goal
 The goal of this project is to __smooth__ season-long measurements of Elo ratings for each NFL team. Then, I'm interested in __clustering__ team-year Elos into a handful of groups.  Research by Hitchcock, Booth, and Casella (2007) indicates that smoothing, while not necessary, does improve cluster fits. 
 
-![](figure/superbowl.jpg)
+
 
 ##Why Do We Care About Classifying Elo Ratings?
 Team decision makers may want to develop a sense for the type of team that they have, given that not all teams realistically have a chance at  winning a championship in every year. Sorry, Broncos and Browns fans...
 
-+ We want to make comparisons between different teams in different seasons. 
-+ Identification of team value: teams that win a lot or improve during the season may be more valuable than those that get worse or stay bad. 
++ We want to make __comparisons__ between different teams in different seasons. 
++ Identification of __team value__: teams that win a lot or improve during the season may be more valuable than those that get worse or stay bad. 
++ Allows for assessment of team __parity__. 
 
 
 ##The Data
-We have __32 teams__ with 16 games per season over 15 seasons, leading to 480 curves that need to be smoothed with GAMs. Each team/year combination is considered independent. Here's some observations:
+We have __32 teams__ with 16 games per season over 15 seasons, leading to 480 curves that need to be smoothed with GAMs. Each team/year combination is considered independent. 
 
-```{r plot_elo, eval = FALSE}
+```{r plot_elo, eval = TRUE, fig.align = 'center', fig.width = 8, fig.height = 4}
 ggplot(filter(x_sort, teamyear %in% c('2012.DEN','2007.NE','2008.DET','2016.NE'))) + 
   geom_line(aes(x = GAME, y = elo, group = teamyear,col = teamyear),lwd = 2) +
   theme_bw() + xlab("Game") + ylab("Elo Rating") + ggtitle("Four Teams' Elo Ratings") + 
@@ -57,59 +115,77 @@ ggplot(filter(x_sort, teamyear %in% c('2012.DEN','2007.NE','2008.DET','2016.NE')
 + I used GAMS to estimate smooth versions of these noisy trends in Elo.
 
 __A Very Complicated Model: __ 
-$$ \hat{Elo}_{ij} = s_{16}(game_{ij})$$ 
+$$ \hat{Elo}_{ij} = s_{ij}(game_{ij})$$
+_Notationally, i refers to team/year combination (1..480) and j refers to game within season (1...16)._  
 
++ Technically, there are 480 smoothed models fit here
++ They may involve differing EDFs for each model depending on how wiggly things need to be
 
 
 ##Functional Data Clustering
+We can then take these curves and calculate distances between each of the GAM smoothers. We can generate a 4-cluster solution based on a technique called __Partitioning Around Medoids__ (PAM). 
+The Idea: 
 
-##Some Conclusions
-By clustering GAM-smoothed Elo curves, we get several groups that most teams fit into. We can call these teams:
++ Determine 4 "medoid" GAM fits
++ For each GAM, figure out which medoid is closest - that's the cluster that each observation goes in
 
-+ 
-+
+##4-Cluster Solution
+__Contenders__: 2010 Baltimore Ravens, __Status Quo__: 2010 Miami Dolphins, __Pretenders__: 2009 Buffalo Bills, __Loveable Losers__: 2008 Oakland Raiders
 
-```{r,eval = FALSE, fig.align = 'center', fig.width = 8, fig.height = 5}
+```{r,warning = FALSE, message = FALSE, eval = TRUE, fig.align = 'center', fig.width = 6, fig.height = 2.5}
 
-
-ggplot(df.reps) + geom_line(aes(game,car02),col = "red",size =2) + geom_line(aes(game,atl02),col = "orange",size = 2) + geom_line(aes(game,ari02),col = "green",size =2) + 
-  geom_line(aes(game,gb02),col = "blue2", size = 2) + ggtitle("Representative Teams") + 
-  theme_economist_white() + ylab("Elo Rating") + scale_x_continuous("Game",breaks = 1:16)
+ggplot(filter(x_sort, teamyear %in% pam1$medoids)) + 
+  geom_line(aes(x = GAME, y = elo, group = teamyear,col = teamyear),lwd = 1.2) +
+  theme_bw() + xlab("Game") + ylab("Elo Rating") + ggtitle("Medoid Elo Ratings") + 
+  scale_color_manual(values=c("orange", "lightblue", "red","blue4"))
 
 
 ```
 
 
-##References
+##Selected References
 
 Glickman, Mark E. and Jones, Albyn (1999)."Rating the Chess Rating System". _Chance_. pp.21-28.
 
 Silver,Nate (2014). "Introducing NFL Elo Ratings" _https://fivethirtyeight.com/features/introducing-nfl-elo-ratings_
-
-Sankar, Krishna. (2015). "THE ART OF NFL RANKING, THE ELO ALGORITHM AND FIVETHIRTYEIGHT" _https://doubleclix.wordpress.com/2015/01/20/the-art-of-nfl-ranking-the-elo-algorithm-and-fivethirtyeight_
- 
-Hitchcock, David B., Casella, George, and Booth, James G. (2006)."Improved Estimation of Dissimilarities by Presmoothing Functional Data." _Journal of the American Statistical Association_
-pp.211-222. 
-
 
 Hitchcock, David B., Booth, James G., and Casella, George. (2007). "The Effect of Pre-Smoothing Functional Data on Cluster Analysis." _The Journal of Statistical Computation and Simulation_. 
 pp. 1043-1055.
 
 Wood, Simon.(2017). _Generalized Additive Models: An Introduction with R_. Ed 2.Chapman and Hall/CRC. 
 
-Chris Fraley, Adrian E. Raftery, T. Brendan Murphy, and Luca Scrucca (2012) mclust Version 4
-  for R: Normal Mixture Modeling for Model-Based Clustering, Classification, and Density
-  Estimation Technical Report No. 597, Department of Statistics, University of Washington
-
-Chris Fraley and Adrian E. Raftery (2002) Model-based Clustering, Discriminant Analysis and
-  Density Estimation Journal of the American Statistical Association 97:611-631
-
-
 
 ##Questions
 
 ![ ](figure/siemian.jpg)
 
+##Supplementary Slides
+Why not model long-term trends? We could ignore the fact that the Elos are normalized and try to model the long-term trends if we wanted to. 
+```{r, warning = FALSE, message = FALSE, fig.align = 'center', fig.height = 4}
+plot(x_np$date[x_np$team == "DEN"],x_np$elo[x_np$team == "DEN"], type = "p", xlab = "Year", ylab = "ELO", pch = 20, col = "orange2")
+title("Denver Broncos Elos since 2002")
 
+library(mgcv)
+den.dat <- x_np[x_np$team == "DEN",]
+gam1 <- gam(elo ~ s(as.numeric(date), k = 16), data = den.dat) #tensor product
+gam2 <- gam(elo ~ s(as.numeric(date), k = 16, bs = "cs"), data = den.dat) #cubicshrinkage
+gam3 <- gam(elo ~ s(as.numeric(date), k = 16, bs = "ds"), data = den.dat)
+gam4 <- gam(elo ~ s(as.numeric(date), k = 16, bs = "cr"), data = den.dat)
+
+gamm1 <- gamm(elo ~ s(as.numeric(date), k = 16, bs = "cs"), random = , data = den.dat)
+
+lines(den.dat$date, predict(gam1), col = "blue3", lwd = 2)
+lines(den.dat$date, predict(gam2), col = "red", lwd = 2, lty = 3)
+lines(den.dat$date, predict(gam3), col = "pink", lwd = 2, lty = 4)
+lines(den.dat$date, predict(gam4), col = "purple", lwd = 2, lty = 2)
+
+legend('bottomright', legend = c("TP","CS","DS","CR"), fill = c("blue3","red","pink","purple"))
+```
+
+
+##Some Interesting Team Results
+```{r}
+pander(table(x_wide$team,pam1$clustering)[c(4,10,21,23),])
+```
 
 
