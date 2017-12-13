@@ -83,9 +83,9 @@ x_sort$GAME <- rep(c(1:16),32*15) #adds a game indicator for each variable
 write.csv(x_sort,"elo.long.csv")
 #that game variable will become a column
 library(tidyr)
-x_wide <- x_sort[,c(2,3,4,7)]%>% spread(key = GAME, value = elo)
+x_wide <- x_sort[,c(2,3,4,7)]%>% spread(key = GAME, value = elo) #check it out I put in a pipe operator!
 #we have a wide dataset, can i fit gam to each season
-x_wide$teamyear <- interaction(x_wide$season,x_wide$team)
+
 
 #some quick plots of GAMs for the presentation
 ggplot(filter(x_sort, teamyear %in% c('2012.DEN','2007.NE','2008.DET','2016.NE'))) + 
@@ -107,7 +107,7 @@ game <- 1:16
 
 x <- gam(unlist(x_wide[1,-c(1,2)])~s(game, k=4), bs = 'cs')
 
-gam_Wide <- function(vector, gam.type = 'cs', max.df = 4){
+gam_Wide <- function(vector, gam.type = 'cs', max.df = 16){
   #create game variable
   game <- 1:16
   #takes a wide dataset (remove name and year first)
@@ -117,7 +117,7 @@ return(x)}
 
 gam_list <- apply(x_wide[,-c(1,2)],1,gam_Wide) #returns a list of the stuff you need
 names(gam_list) <- interaction(x_wide$season,x_wide$team)
-
+x_wide$teamyear <- interaction(x_wide$season,x_wide$team)
 #let's make a data frame of predicted gams
 pred_mat <- matrix(0, nrow = length(gam_list), ncol = 16)
 for(j in 1:length(gam_list)){
@@ -138,6 +138,20 @@ gam_distances <- metric.lp(pred_mat)
 #let's go ahead and try some hierarchical clustering
 library(mclust)
 
+
+#is there a way to do medoid-based clustering?
+library(cluster)
+pam1 <- pam(as.dist(gam_distances), metric = "euclidean", k = 4)
+
+ggplot(filter(x_sort, teamyear %in% pam1$medoids)) + 
+  geom_line(aes(x = GAME, y = elo, group = teamyear,col = teamyear),lwd = 2) +
+  theme_bw() + xlab("Game") + ylab("Elo Rating") + ggtitle("Three Teams' Elo Ratings") + 
+  scale_color_manual(values=c("orange", "lightblue", "red","blue4"))
+
+
+
+
+#hierarchical clustering 
 CF <- hclust(as.dist(gam_distances), method = 'ward.D2')
 plot(CF)
 
