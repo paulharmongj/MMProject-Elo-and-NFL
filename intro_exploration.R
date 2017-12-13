@@ -95,9 +95,11 @@ ggplot(filter(x_sort, teamyear %in% c('2012.DEN','2007.NE','2008.DET','2016.NE')
 
 
 
+#a quickie plot showing smoothed vs raw data
 
-
-
+plot(1:16,predict(gam_list[[472]]), type = "l", xlab = "Game", ylab = "Elo", lwd = 2, col = "red3")
+points(1:16, x_wide[472,-c(1,2,19)], col = "green3", pch = 18, cex = 1.2)
+title("New York Jets 2016 Data vs. Smooth GAM")
 
 
 game <- 1:16
@@ -107,8 +109,6 @@ x <- gam(unlist(x_wide[1,-c(1,2)])~s(game, k=4), bs = 'cr')
 
 #let's try a couple of different functions for this: 
 
-
-gam_Wide <- function(vector, gam.type = 'cr', max.df = 16){ 
 
 gam_Wide <- function(vector, gam.type = 'cs', max.df = 16){
   #create game variable
@@ -121,6 +121,23 @@ return(x)}
 
 gam_list <- apply(x_wide[,-c(1,2)],1,gam_Wide) #returns a list of the stuff you need
 names(gam_list) <- interaction(x_wide$season,x_wide$team)
+
+#function to get EDF from gam_list
+pval_get <- function(gam.object){
+  smooth_pval <- summary(gam.object)$s.pv
+  
+ return(s.pval = smooth_pval)}
+
+edf_get <- function(gam.object){
+  edf <- summary(gam.object)$edf
+  return(edf = edf)}
+
+
+edf_values <- sapply(gam_list, edf_get)
+hist(edf_values)
+
+p_values <- sapply(gam_list, pval_get)
+summary(p_values)
 
 x_wide$teamyear <- interaction(x_wide$season,x_wide$team)
 
