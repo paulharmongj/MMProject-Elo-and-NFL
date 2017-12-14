@@ -1,7 +1,8 @@
 ---
 title: "Clustering GAM-Smoothed NFL Elo Ratings"
+subtitle: "STAT 448: Mixed Models"
 author: "Paul Harmon"
-date: "November 28, 2017"
+date: "Fall 2017"
 output:
   beamer_presentation:
     theme: "CambridgeUS"
@@ -76,35 +77,22 @@ pam1 <- pam(as.dist(gam_distances), metric = "euclidean", k = 4)
 ```
 
 
-
 ##What Are Elo Ratings?
 Elo ratings are used by FiveThirtyEight to predict the outcome of head-to-head matchups between NFL teams. They were originally developed for prediction of chess matches but have been extended to sports analytics.
 
-+ Easy way to dynamically rate teams in head to head matchups
++ A way to rank teams and predict outcomes 
 + Teams with higher Elo Ratings should beat teams with lower Elo Ratings
 + Can be interpreted as point spreads for matchups (divide difference by 25 to get spread)
-+ Average Elo is 1500 for an NFL team
-
-
-##Project Goal
-The goal of this project is to __smooth__ season-long measurements of Elo ratings for each NFL team. Then, I'm interested in __clustering__ team-year Elos into a handful of groups.  Research by Hitchcock, Booth, and Casella (2007) indicates that smoothing, while not necessary, does improve cluster fits. 
-
-```{r, fig.align = 'center', fig.width = 7, fig.height = 3}
-plot(1:16,predict(gam_list[[472]]), type = "l", xlab = "Game", ylab = "Elo", lwd = 2, col = "red3")
-points(1:16, x_wide[472,-c(1,2,19)], col = "green3", pch = 18, cex = 1.2)
-title("New York Jets 2016 Data vs. Smooth GAM")
-```
-
-
++ Average Elo is 1500 for an NFL team, and they are calculated prior to every game
 
 
 ##Why Do We Care About Classifying Elo Ratings?
 Team decision makers may want to develop a sense for the type of team that they have, given that not all teams realistically have a chance at  winning a championship in every year. Sorry, Broncos and Browns fans...
 
 + We want to make __comparisons__ between different teams in different seasons. 
-+ Identification of __team value__: teams that win a lot or improve during the season may be more valuable than those that get worse or stay bad. 
-+ Allows for assessment of team __parity__. 
++ Allows for assessment of team __parity__ over time. 
 
+__Goal__: To __smooth__ season-long measurements of Elo ratings for each NFL team and __cluster__ team-year Elos into 4 groups.  Research by Hitchcock, Booth, and Casella (2007) indicates that smoothing improves cluster fits.
 
 ##The Data
 We have __32 teams__ with 16 games per season over 15 seasons, leading to 480 curves that need to be smoothed with GAMs. Each team/year combination is considered independent. 
@@ -115,7 +103,6 @@ ggplot(filter(x_sort, teamyear %in% c('2012.DEN','2007.NE','2008.DET','2016.NE')
   theme_bw() + xlab("Game") + ylab("Elo Rating") + ggtitle("Four Teams' Elo Ratings") + 
   scale_color_manual(values=c("orange", "lightblue", "red","blue4"))
 ```
-
 
 
 ##GAM-Smoothed Estimates
@@ -131,7 +118,7 @@ _Notationally, i refers to team/year combination (1..480) and j refers to game w
 + They may involve differing EDFs for each model depending on how wiggly things need to be
 + Majority of the EDF were below 5.72, with 90 percent having small p-values
 
-```{r}
+```{r, include = FALSE}
 pval_get <- function(gam.object){
   smooth_pval <- summary(gam.object)$s.pv
   
@@ -215,3 +202,11 @@ The Idea:
 + Determine 4 "medoid" GAM fits
 + For each GAM, figure out which medoid is closest - that's the cluster that each observation goes in
 
+##Why Smooth?
+Goal: To __smooth__ season-long measurements of Elo ratings for each NFL team and __cluster__ team-year Elos into 4 groups.  Research by Hitchcock, Booth, and Casella (2007) indicates that smoothing improves cluster fits. 
+
+```{r, fig.align = 'center', fig.width = 6, fig.height = 4}
+plot(1:16,predict(gam_list[[472]]), type = "l", xlab = "Game", ylab = "Elo", lwd = 2, col = "red3")
+points(1:16, x_wide[472,-c(1,2,19)], col = "green3", pch = 18, cex = 1.2)
+title("New York Jets 2016 Data vs. Smooth GAM")
+```

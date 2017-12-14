@@ -95,20 +95,17 @@ ggplot(filter(x_sort, teamyear %in% c('2012.DEN','2007.NE','2008.DET','2016.NE')
 
 
 
-#a quickie plot showing smoothed vs raw data
 
-plot(1:16,predict(gam_list[[472]]), type = "l", xlab = "Game", ylab = "Elo", lwd = 2, col = "red3")
-points(1:16, x_wide[472,-c(1,2,19)], col = "green3", pch = 18, cex = 1.2)
-title("New York Jets 2016 Data vs. Smooth GAM")
+
+
+
+
+
 
 
 game <- 1:16
 
-x <- gam(unlist(x_wide[1,-c(1,2)])~s(game, k=4), bs = 'cr')
-
-
-#let's try a couple of different functions for this: 
-
+x <- gam(unlist(x_wide[1,-c(1,2)])~s(game, k=4), bs = 'cs')
 
 gam_Wide <- function(vector, gam.type = 'cs', max.df = 16){
   #create game variable
@@ -118,47 +115,17 @@ gam_Wide <- function(vector, gam.type = 'cs', max.df = 16){
   
 return(x)}
 
-
 gam_list <- apply(x_wide[,-c(1,2)],1,gam_Wide) #returns a list of the stuff you need
 names(gam_list) <- interaction(x_wide$season,x_wide$team)
-
-#function to get EDF from gam_list
-pval_get <- function(gam.object){
-  smooth_pval <- summary(gam.object)$s.pv
-  
- return(s.pval = smooth_pval)}
-
-edf_get <- function(gam.object){
-  edf <- summary(gam.object)$edf
-  return(edf = edf)}
-
-
-edf_values <- sapply(gam_list, edf_get)
-hist(edf_values)
-
-p_values <- sapply(gam_list, pval_get)
-summary(p_values)
-
 x_wide$teamyear <- interaction(x_wide$season,x_wide$team)
-
-#some quick plots of GAMs for the presentation
-ggplot(filter(x_sort, teamyear %in% c('2012.DEN','2007.NE','2008.DET','2016.NE'))) + 
-  geom_line(aes(x = GAME, y = elo, group = teamyear,col = teamyear),lwd = 2) +
-  theme_bw() + xlab("Game") + ylab("Elo Rating") + ggtitle("Three Teams' Elo Ratings") + 
-  scale_color_manual(values=c("orange", "lightblue", "red","blue4"))
-
-
-
-
-
-x_wide$teamyear <- interaction(x_wide$season,x_wide$team)
-
 #let's make a data frame of predicted gams
 pred_mat <- matrix(0, nrow = length(gam_list), ncol = 16)
 for(j in 1:length(gam_list)){
 pred_mat[j,] <- predict(gam_list[[j]])  
 }
 rownames(pred_mat) <- names(gam_list)
+
+
 
 
 
@@ -180,6 +147,16 @@ ggplot(filter(x_sort, teamyear %in% pam1$medoids)) +
   geom_line(aes(x = GAME, y = elo, group = teamyear,col = teamyear),lwd = 2) +
   theme_bw() + xlab("Game") + ylab("Elo Rating") + ggtitle("Three Teams' Elo Ratings") + 
   scale_color_manual(values=c("orange", "lightblue", "red","blue4"))
+
+
+#tables of clusters
+xtable(table(x_wide$team,pam1$clustering))
+
+
+
+
+
+
 
 
 
@@ -215,10 +192,6 @@ df.reps <- data.frame(cbind(car02,atl02,ari02,gb02,game))
 ggplot(df.reps) + geom_line(aes(game,car02),col = "red",size =2) + geom_line(aes(game,atl02),col = "orange",size = 2) + geom_line(aes(game,ari02),col = "green",size =2) + 
   geom_line(aes(game,gb02),col = "blue2", size = 2) + ggtitle("Representative Teams") + 
   theme_economist_white() + ylab("Elo Rating") + scale_x_continuous("Game",breaks = 1:16)
-
-ggplot(filter(x_))
-
-
 
 
 

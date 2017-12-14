@@ -142,14 +142,63 @@ In order to determine differences between smoothed curves in each year, it is ne
 
 \subsection{Medoid-Based Clusters}
 
-\section{Cluster Solutions}
-The Hierarchical Clustering solution chose __ clusters 
+One method for clustering GAM-smoothed Elo ratings for each team/year combination would be to partition the fits around a subset of several representative curves, called medoids.  This can be achieved using the pam function in the cluster package of R \cite{medoids}.  For a four-cluster solution, the goal would be to identify four smooth curves and then group each of the remaining 476 curves into one of the four groups by putting it in the cluster with the nearest medoid. Thus, this groups teams that did poorly with other teams that did poorly, and teams that did well with other teams that did well. 
+
+The four-cluster result with medoids plotted is given in Figure 1. Interestingly, this seems to separate teams that did not exhibit much change pretty well. The four medoid teams are all either poor, middling, or great, but I think that the partitioning around medoids based on Euclidean distances likely breaks down for teams that changed radically through the season, such as the 2008 Tennesse Titans or the 2011 Denver Broncos, which are grouped by the .  
 
 
-\subsection{Clusters}
+<<pamclust, include = TRUE, fig.cap = "Possible Representative within-season curves", echo = FALSE, fig.width = 4, fig.height = 3, fig.align = 'center'>>=
+
+@
+
+\subsection{4-Cluster Solution}
 
 Cluster sensitivity to the GAM
 
+
+% latex table generated in R 3.4.2 by xtable 1.8-2 package
+% Tue Dec 12 21:54:03 2017
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrr}
+  \hline
+ & 1 & 2 & 3 & 4 \\ 
+  \hline
+ARI &   5 &   2 &   4 &   4 \\ 
+  ATL &   2 &   8 &   1 &   4 \\ 
+  BAL &   0 &   7 &   0 &   8 \\ 
+  BUF &   6 &   9 &   0 &   0 \\ 
+  CAR &   2 &   7 &   2 &   4 \\ 
+  CHI &   5 &   8 &   1 &   1 \\ 
+  CIN &   4 &   5 &   1 &   5 \\ 
+  CLE &  10 &   1 &   4 &   0 \\ 
+  DAL &   2 &   8 &   0 &   5 \\ 
+  DEN &   2 &   4 &   0 &   9 \\ 
+  DET &   4 &   5 &   6 &   0 \\ 
+  GB &   1 &   5 &   0 &   9 \\ 
+  HOU &   3 &   6 &   4 &   2 \\ 
+  IND &   2 &   4 &   0 &   9 \\ 
+  JAX &   3 &   5 &   5 &   2 \\ 
+  KC &   1 &   6 &   3 &   5 \\ 
+  LAC &   2 &   5 &   1 &   7 \\ 
+  LAR &   6 &   3 &   4 &   2 \\ 
+  MIA &   4 &   8 &   1 &   2 \\ 
+  MIN &   4 &   9 &   0 &   2 \\ 
+  NE &   0 &   0 &   0 &  15 \\ 
+  NO &   4 &   6 &   0 &   5 \\ 
+  NYG &   2 &  10 &   0 &   3 \\ 
+  NYJ &   4 &   7 &   1 &   3 \\ 
+  OAK &   5 &   3 &   6 &   1 \\ 
+  PHI &   2 &   6 &   0 &   7 \\ 
+  PIT &   0 &   3 &   0 &  12 \\ 
+  SEA &   5 &   4 &   0 &   6 \\ 
+  SF &   3 &   1 &   6 &   5 \\ 
+  TB &   6 &   5 &   2 &   2 \\ 
+  TEN &   4 &   6 &   3 &   2 \\ 
+  WSH &   8 &   6 &   1 &   0 \\ 
+   \hline
+\end{tabular}
+\end{table}
 
 
 \subsection{Scope of Inference}
@@ -179,7 +228,7 @@ Sankar, Krishna. (2015).
 \bibitem{knuthwebsite} 
 Knuth: Computers and Typesetting,
 \\\texttt{http://www-cs-faculty.stanford.edu/\~{}uno/abcde.html}
-\end{thebibliography}
+
 
 \bibitem{hitchclust}
 Hitchcock, David B., Casella, George, and Booth, James G. (2006).
@@ -192,6 +241,12 @@ Hitchcock, David B., Booth, James G., and Casella, George. (2007).
 "The Effect of Pre-Smoothing Functional Data on Cluster Analysis"
 \textit{The Journal of Statistical Computation and Simulation}
 pp. 1043-1055. 
+
+\bibitem{medoid}
+Maechler, M., Rousseeuw, P., Struyf, A., Hubert, M., Hornik, K.(2017).  cluster: Cluster Analysis
+  Basics and Extensions. R package version 2.0.6.
+
+\end{thebibliography}
 
 \end{document}
 
