@@ -1,0 +1,373 @@
+\documentclass{article}
+
+\usepackage{setspace}
+
+
+\usepackage[letterpaper, margin=1in]{geometry}
+\usepackage{titling}
+
+\setlength{\droptitle}{-10em}
+
+\renewcommand{\familydefault}{\sfdefault}
+
+\begin{document}
+\title{Clustering GAM-Smoothed NFL Elo Ratings}
+\author{Paul Harmon}
+	
+\maketitle
+\doublespacing
+
+\begin{document}
+\section{Introduction}
+The regular season in the NFL is a grinding stretch of nearly four months, testing the mettle of the 32 teams, coaching staffs, and fan bases from early September all the way to the end of December. During that stretch, the fortunes of teams can change drastically from their initial expectations and projections.  Media and fan-based expectations of teams may be high going into Week 1 of the NFL season, only to plunge after a few disappointing losses cause a team's playoff hopes to spiral out of control.  
+
+It is therefore of interest to academics, sports managers, and fans to analyze how and why teams improve or fall apart during the season. The NFL is structured in order to maintain parity between its 32 teams, but does it actually achieve it?  To answer these questions, I analyze and compare per-game Elo scores for each NFL team.  
+
+<<initial_chunk, echo = FALSE, include = FALSE >>= 
+knitr::opts_chunk$set(echo = FALSE)
+library(ggplot2)
+library(dplyr)
+library(readr); library(mgcv);library(pander)
+x <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/nfl-elo-game/master/data/nfl_games.csv")
+x_new <- dplyr::filter(x, season > 2001) #filters out anything before 2002, when Texans joined the league
+#mutate some new columns
+x_1 <- x_new[,c("date","season","team1","elo1","playoff")]
+x_2 <- x_new[,c("date","season","team2","elo2","playoff")]
+names(x_1) <- names(x_2) <- c("date","season","team","elo","playoff")
+x_full <- rbind(x_1,x_2)
+
+#remove playoff games
+x_np <- arrange(dplyr::filter(x_full, playoff == 0), date)
+x_np$teamyear <- interaction(x_np$season,x_np$team)
+
+#some commentary: it looks like these are, in a certain sense, marginal models for the average
+#elo of the team during a given year. 
+#Try to create a "long" dataset
+#Structure - Observations of every game for each year for each team as rows
+x_sort <- arrange(x_np, teamyear) #sort so I can add a game indicator by team/game
+x_sort$GAME <- rep(c(1:16),32*15) #adds a game indicator for each variable
+
+write.csv(x_sort,"elo.long.csv")
+#that game variable will become a column
+library(tidyr)
+x_wide <- x_sort[,c(2,3,4,7)]%>% spread(key = GAME, value = elo) #check it out I put in a pipe operator!
+#we have a wide dataset, can i fit gam to each season
+
+game <- 1:16
+x <- gam(unlist(x_wide[1,-c(1,2)])~s(game, k=4), bs = 'cs')
+gam_Wide <- function(vector, gam.type = 'cs', max.df = 16){
+  #create game variable
+  game <- 1:16
+  #takes a wide dataset (remove name and year first)
+  x <- gam(unlist(vector) ~ s(game, k = max.df))
+  
+return(x)}
+
+gam_list <- apply(x_wide[,-c(1,2)],1,gam_Wide) #returns a list of the stuff you need
+names(gam_list) <- interaction(x_wide$season,x_wide$team)
+x_wide$teamyear <- interaction(x_wide$season,x_wide$team)
+#let's make a data frame of predicted gams
+pred_mat <- matrix(0, nrow = length(gam_list), ncol = 16)
+for(j in 1:length(gam_list)){
+pred_mat[j,] <- predict(gam_list[[j]])  
+}
+rownames(pred_mat) <- names(gam_list)
+
+#create dissimilarity matrix via R-package (although below might be interesting as well)
+#uses L2 norm (Euclidean distances) but I'd be curious about Mahalonobis distances as well
+library(fda.usc)
+gam_distances <- metric.lp(pred_mat)
+
+#let's go ahead and try some hierarchical clustering
+library(mclust)
+#is there a way to do medoid-based clustering?
+library(cluster)
+pam1 <- pam(as.dist(gam_distances), metric = "euclidean", k = 4)
+
+@
+
+\subsection{Great Lakes Analytics in Sports Conference}
+
+This paper is written for submission to the Great Lakes Analytics in Sports Conference, and is intended to inform methods for sports analytics used both by academics and practitioners alike. In the spirit of the editorial board of the Journal of Sports Analytics, which comprises statistics professors, sports teams' analytics departments, and other sports-related data scientists, this paper is written for an audience of practitioners and researchers, and should be approachable for even a layperson to read. 
+
+\subsection{Elo Ratings and the NFL}
+
+To understand how NFL teams perform during the season, we need some metric of team quality for meaningful comparisons to be made. Most sports outlets, including ESPN and FiveThirtyEight, among others, develop "Power Rankings" which can be based either on an author's subjective opinion (the so-called "Eye Test") or on objective data from the games each team has played. Some Power rankings are based on complex algorithms; however, FiveThirtyEight's Elo ranking may be the simplest and the best. 
+
+Elo ratings, named for their creator, Arpad Elo, were originally developed in the 1950s for ranking of Chess Players (Glickman 1999).  They have since become popular in many rating-based venues, including the social sciences and, more importantly, sports analytics.  In general, an Elo rating calculates a numerical rating for participants based on their previous performance and updates it with each additional game or match (Glickman 1999). The general formula for FiveThirtyEight's calculation of NFL Elo rankings is given below (Sankar 2015):
+\begin{equation}
+R_t = = R_{t-1}+ K*V*M_{ij}(S_{ij}-\mu_{ij})
+\end{equation}
+
+$R_t$ is the Elo rating at game t, expressed as a function of the previous Elo rating, the per-game weight k, the and Margin of Victory correction V. The function $M_{ij}(S_{ij}-\mu_{ij})$ calculates whether or not a team's Elo rating should increase based on the previous result $S_{ij}$ and the expected result based on the previous Elo rankings (Sankar 2015). Thus, a team that upsets a better-perceived team will get a bigger boost to its Elo ranking than a team that wins a game that it was expected to beat. FiveThirtyEight developed Elo ratings for most major sports including the NFL. Elo is used for predicting head-to-head matchups between NFL teams and uses those ratings to predict game outcomes as well as measure relative NFL team strength (Silver 2014). 
+
+During each season, teams start the year with an initial Elo rating that is representative of the initial expectations for the team and then update it after each game is played. These initial values are based on each team's Elo rating from the year before with a correction that reverts the previous year's record to the mean by one-third (Silver 2014). Because the teams' ratings are automatically reset by being reverted towards the mean at the beginning of each year, a team's Elo rating is not continuous from one year to the next.  Moreover, fundamental changes may occur during the off-season period between seasons as teams change coaching personnel, ownership, and player personnel, so it is more of interest to examine within-season behavior rather than the macro-level trend of a team over several years of data.  
+
+
+
+\subsection{Interpretability of Elo Ratings}
+
+Elo ratings are just one of many ways to measure a given team's relative strength; however, they are preferable for several reasons. First, they do not require much information to calculate.  The weighting factor K for the NFL is 20, giving more weight to any NFL game than for other sports with longer than 16-game seasons (Silver 2014).  Furthermore, the difference in two ratings can be interpreted as a point-spread for the game by taking the difference between the two teams and dividing by 25 (Silver 2014). A team's pre-game probability of winning can be computed using Elo as well. 
+
+The utility of Elo ratings is illustrated in Figure 1, which shows Elo ratings for four notable NFL teams. The 2007 Patriots were undefeated during the regular season and the 2008 Detroit Lions failed to win a single game; they are the best and worst teams in regular season history. The separation between them is obvious on an Elo scale. 
+
+<<raw_teams, include = TRUE, fig.cap = "Possible Representative within-season curves", echo = FALSE, fig.width = 9, fig.height = 5, fig.align = 'center'>>= 
+ggplot(filter(x_sort, teamyear %in% c('2012.DEN','2007.NE','2008.DET','2016.NE'))) + 
+  geom_line(aes(x = GAME, y = elo, group = teamyear,col = teamyear),lwd = 2) +
+  theme_bw() + xlab("Game") + ylab("Elo Rating") + ggtitle("Four Teams' Elo Ratings") + 
+  scale_color_manual(values=c("orange", "lightblue", "red","blue4"))
+@
+
+\subsection{Why Should We Care About NFL Elos?}
+
+The central research question addressed in this analysis is as follows: Can team behavior be categorized into several groups based on whether teams "overachieve" or "underachieve" during a given season? Which teams in given years have performed similarly to teams in a current year? This would especially be important if we found that teams' classifications after, for instance, 8 games was enough to classify them over the entire season. It may be that since teams have incentive to continue losing at the end of the season, in order to obtain a higher draft pick in the following off-season, that the final four games are not as important for classification as those at the beginning of the season.  
+
+
+\section{Elo Ratings by Season}
+\subsection{The Data}
+The data were obtained from FiveThirtyEight's repository on Elo ratings and can be obtained from the following URL: https://github.com/fivethirtyeight/nfl-elo-game. For each season, each of the 32 NFL teams has an Elo rating assigned. The available data go back to the 1920 season (the NFL's first), but I constrained this analysis only to the years since the Houston Texans joined the League in 2002. The sample of teamyear combinations was decidedly non-random observational study, meaning that these results cannot be extended to previous team/year combinations.
+
+Therefore, there are 15 years worth of Elo ratings for each team with 16 games per season per team, giving 7680 individual Elo ratings on which the 480 sesaon/team combinations are measured. The data are \textit{functional data} because each team-year combination has 16 noisy observations of a continuous, semi-observed underlying process.   All analysis was performed in the statistical software package R 3.4.2 (R Core Team 2017). 
+
+Table 1 shows the mean and standard deviations for each of the 32 NFL teams since 2002.  Marginally, the best team has been the New England Patriots, whose 1665 average is more than 165 points above the constructed average Elo rating of 1500. Meanwhile, the poorest team over the past 15 years, on average, was the Cleveland Browns, with an average rating of about 1411. The mean Elo overall was close to what Nate Silver claimed, at 1503. 
+
+% latex table generated in R 3.4.2 by xtable 1.8-2 package
+% Mon Dec 04 10:56:47 2017
+\begin{table}[ht]
+\centering
+\caption {Summary Statistics} \label{tab:sumstat}
+\begin{tabular}{rlrr}
+  \hline
+ & Team & Mean & SD \\ 
+  \hline
+1 & ARI & 1466.20 & 96.53 \\ 
+  2 & ATL & 1514.75 & 75.29 \\ 
+  3 & BAL & 1556.82 & 58.80 \\ 
+  4 & BUF & 1475.79 & 50.49 \\ 
+  5 & CAR & 1503.91 & 80.86 \\ 
+  6 & CHI & 1494.22 & 72.65 \\ 
+  7 & CIN & 1500.66 & 88.70 \\ 
+  8 & CLE & 1411.08 & 52.59 \\ 
+  9 & DAL & 1520.59 & 65.72 \\ 
+  10 & DEN & 1562.55 & 89.35 \\ 
+  11 & DET & 1417.12 & 85.84 \\ 
+  12 & GB & 1575.36 & 78.56 \\ 
+  13 & HOU & 1454.69 & 94.52 \\ 
+  14 & IND & 1583.12 & 102.55 \\ 
+  15 & JAX & 1437.99 & 99.73 \\ 
+  16 & KC & 1494.32 & 98.19 \\ 
+  17 & LAC & 1535.66 & 81.21 \\ 
+  18 & LAR & 1434.68 & 88.48 \\ 
+  19 & MIA & 1482.12 & 59.58 \\ 
+  20 & MIN & 1497.33 & 61.95 \\ 
+  21 & NE & 1665.05 & 55.79 \\ 
+  22 & NO & 1525.53 & 79.28 \\ 
+  23 & NYG & 1523.61 & 66.22 \\ 
+  24 & NYJ & 1496.84 & 67.80 \\ 
+  25 & OAK & 1420.34 & 86.46 \\ 
+  26 & PHI & 1553.37 & 71.80 \\ 
+  27 & PIT & 1585.42 & 57.87 \\ 
+  28 & SEA & 1536.45 & 93.94 \\ 
+  29 & SF & 1474.99 & 110.91 \\ 
+  30 & TB & 1471.75 & 83.03 \\ 
+  31 & TEN & 1479.76 & 94.25 \\ 
+  32 & WSH & 1453.02 & 54.56 \\ 
+   \hline
+\end{tabular}
+\end{table}
+
+\pagebreak
+
+\section{Smoothing Estimates with GAMS}
+\subsection{Why Smooth?}
+Smoothing functional data such as the NFL Elo ratings has proven to be useful in several applications. For cluster analysis, smoothing helps in identifying underlying clusters in the data (Hitchcock et al 2007). Further, research has shown that a pre-smoothed, James-Stein shrinkage-based estimator dominates observed data in identifying dissimilarities between functional data (Hitchock et al 2006). These are both useful for this application because the observations, especially at the beginning of the year, tend to be fairly noisy. 
+
+
+\subsection{Generalized Additive Models for Clusters}
+
+Generalized Additive Models, or GAMs, are a common and useful tool for smoothing data. As opposed to linear regression, which fits a linear relationship to the data, a GAM fits a smooth function to the data. This allows for increased wiggliness that can be achieved without using as many degrees of freedom as a complex polynomial regression model. GAMs allow for parsimonious smoothing of noisy functional data that better fits the wiggly time trend in the data over time, as shown in Figure 2. 
+
+<< Smoothgams, include = TRUE, fig.cap = "Possible Representative within-season curves", echo = FALSE, fig.width = 8, fig.height = 5, fig.align = 'center'>>= 
+plot(1:16,predict(gam_list[[472]]), type = "l", xlab = "Game", ylab = "Elo", lwd = 2, col = "red3")
+points(1:16, x_wide[472,-c(1,2,19)], col = "green3", pch = 18, cex = 1.2)
+title("New York Jets 2016 Data vs. Smooth GAM")
+@ 
+
+For each team in a given year, the model for smoothed Elo ratings is as follows, where the subscript i refers to the ith team/year combination, and j refers to the game in that season, taking the values 1 to 15.  A team's Elo rating at any point in a season is expressed as a smooth function of time with up to 16 EDF. Moreover, this analysis does not fit a single GAM; rather, it fits a GAM to all 480 team-year combinations and considers each season for each team as a single curve to be analyzed. However, because the GAMs are all fit independently, each model has a different EDF. The theoretical model is given below, with errors assumed to be independent with constant variance $\sigma^2$: 
+
+\begin{equation}
+\centering
+ELO_{ij} = s_{i}(game_k) + \epsilon_{ij}
+\end{equation}
+
+\subsection{Smoothing Methods and Basis Functions}
+An important aspect of GAM-based smoothing is the choice of basis function. I chose to use Cubic Regression splines because they are interpret able and efficient.  While it is possible that these splines may overfit in some models, they are reasonable for this model and can produce GAMs that are either very smooth or rather wiggly ( up to 15 edf).  Indeed, the choice of basis functions has an effect on the GAMs used to smooth the data and therefore, an effect on the eventual clusters that are formed.  This paper leaves the sensitivity of the clusters to different choices of basis functions as a future research topic; instead, I focus solely on the smooth functions using Cubic Regression splines. 
+
+The distribution of EDFs for the 480 models is given below. Interestingly, some of the models fit a line through all of the points, so the EDF for those models was 15. These would have been the wiggliest GAMs fit; however, many of the GAMs for team/year combinations are fairly smooth.  The beanplot in Figure 3 shows that the EDF values are trimodal, with most of the models having an EDF between 4 and 10, where the yellow lines represent individual EDF values for each of the models. Furthermore, the p-values associated with these smooth terms are small, indicating strong evidence of a smooth trend over time for the majority of the team/year Elo functions. 
+<<fig:beanplot, include = TRUE, message = FALSE, fig.cap = "Density of EDF from 480 Models", echo = FALSE, fig.width = 8, fig.height = 6, fig.align = 'center'>>=
+library(beanplot)
+pval_get <- function(gam.object){
+  smooth_pval <- summary(gam.object)$s.pv
+  
+ return(s.pval = smooth_pval)}
+
+edf_get <- function(gam.object){
+  edf <- summary(gam.object)$edf
+  return(edf = edf)}
+
+edf_values <- sapply(gam_list, edf_get)
+beanplot(edf_values, method = 'jitter', col = c("blue","gold"), horizontal = TRUE, main = "Estimated DF from Models")
+
+@
+ 
+\pagebreak 
+
+\section{Clustering}
+
+
+\subsection{Dissimilarity: Euclidean Distances}
+
+In order to determine differences between smoothed curves in each year, it is necessary to calculate the distances between each team's curve.  For Elo ratings, where differences can be calculated either on a probabilistic scale or calculated as a point spread, Euclidean distance makes the most sense as a dissimilarity metric. One way to think of the clusters based on Euclidean distances is that teams in the same cluster would be picked to either tie or have a small point spread if matched up against each other.  
+
+\subsection{Medoid-Based Clusters}
+
+One method for clustering GAM-smoothed Elo ratings for each team/year combination would be to partition the fits around a subset of several representative curves, called medoids.  This can be achieved using the pam function in the cluster package of R (Maechler 2017).  For a four-cluster solution, the goal would be to identify four smooth curves and then group each of the remaining 476 curves into one of the four groups by putting it in the cluster with the nearest medoid. Thus, this groups teams that did poorly with other teams that did poorly, and teams that did well with other teams that did well. 
+
+The four-cluster result with medoids plotted is given in Figure 4. Interestingly, this seems to separate teams that did not exhibit much change pretty well. The four medoid teams are all either poor, middling, or great, but I think that the partitioning around medoids based on Euclidean distances likely breaks down for teams that changed radically through the season, such as the 2008 Tennessee Titans or the 2011 Denver Broncos.  
+
+
+<<fig:pamclust, include = TRUE, fig.cap = "Possible Representative within-season curves", echo = FALSE, fig.width = 9, fig.height = 5, fig.align = 'center'>>=
+ggplot(filter(x_sort, teamyear %in% pam1$medoids)) + 
+  geom_line(aes(x = GAME, y = elo, group = teamyear,col = teamyear),lwd = 1.2) +
+  theme_bw() + xlab("Game") + ylab("Elo Rating") + ggtitle("Medoid Elo Ratings") + 
+  scale_color_manual(values=c("orange", "lightblue", "red","blue4"))
+@
+
+\subsection{4-Cluster Solution}
+
+The 4 clusters identified in PAM were largely separated by where they were in the plot. The teams that performed well above average clustered into a single group, with the second and third categories generally separated by whether they were slightly above or slightly below average. Finally, the last cluster included the teams that had the lowest Elo ratings over seasons. Most of these teams lost 12 or more games.  
+
+I chose the following names for each of the clusters, with their medoids given as well. 
+
+\begin{itemize}
+\item \textbf{Contenders}: 2010 Baltimore Ravens
+\item \textbf{Status Quo}: 2010 Miami Dolphins
+\item \textbf{Pretenders}: 2009 Buffalo Bills
+\item \textbf{Loveable Losers}: 2008 Oakland Raiders
+
+\end{itemize}
+
+Cluster membership is given in the Table 2, and it helps to answer some of the research questions addressed.  For one, league parity is not as prevalent as advertised. Some teams have never been in Contender category during the past 15 years whereas the New England Patriots have only been in the top category during that time. Buffalo Bills fans, on the other hand, have a legitimate complain; they have spent all of the past 15 years in the Loveable Losers and Pretenders category. In Table 2, Cluster 1 refers to the "Loveable Losers" cluster, 2 the "Pretenders", 3 the "Status-Quo", and category 4 is the "Contender" group.
+
+% latex table generated in R 3.4.2 by xtable 1.8-2 package
+% Tue Dec 12 21:54:03 2017
+\begin{table}[ht]
+\caption {Cluster Membership} \label{tab:title}
+\centering
+\begin{tabular}{rrrrr}
+  \hline
+ & 1 & 2 & 3 & 4 \\ 
+  \hline
+ARI &   5 &   2 &   4 &   4 \\ 
+  ATL &   2 &   8 &   1 &   4 \\ 
+  BAL &   0 &   7 &   0 &   8 \\ 
+  BUF &   6 &   9 &   0 &   0 \\ 
+  CAR &   2 &   7 &   2 &   4 \\ 
+  CHI &   5 &   8 &   1 &   1 \\ 
+  CIN &   4 &   5 &   1 &   5 \\ 
+  CLE &  10 &   1 &   4 &   0 \\ 
+  DAL &   2 &   8 &   0 &   5 \\ 
+  DEN &   2 &   4 &   0 &   9 \\ 
+  DET &   4 &   5 &   6 &   0 \\ 
+  GB &   1 &   5 &   0 &   9 \\ 
+  HOU &   3 &   6 &   4 &   2 \\ 
+  IND &   2 &   4 &   0 &   9 \\ 
+  JAX &   3 &   5 &   5 &   2 \\ 
+  KC &   1 &   6 &   3 &   5 \\ 
+  LAC &   2 &   5 &   1 &   7 \\ 
+  LAR &   6 &   3 &   4 &   2 \\ 
+  MIA &   4 &   8 &   1 &   2 \\ 
+  MIN &   4 &   9 &   0 &   2 \\ 
+  NE &   0 &   0 &   0 &  15 \\ 
+  NO &   4 &   6 &   0 &   5 \\ 
+  NYG &   2 &  10 &   0 &   3 \\ 
+  NYJ &   4 &   7 &   1 &   3 \\ 
+  OAK &   5 &   3 &   6 &   1 \\ 
+  PHI &   2 &   6 &   0 &   7 \\ 
+  PIT &   0 &   3 &   0 &  12 \\ 
+  SEA &   5 &   4 &   0 &   6 \\ 
+  SF &   3 &   1 &   6 &   5 \\ 
+  TB &   6 &   5 &   2 &   2 \\ 
+  TEN &   4 &   6 &   3 &   2 \\ 
+  WSH &   8 &   6 &   1 &   0 \\ 
+   \hline
+\end{tabular}
+\end{table}
+
+
+\subsection{Future Work}
+This project illuminates some interesting differences between team behavior across the fifteen year period, but it also raises questions that should be answered in future work.  First, it would be of interest to analyze differences in the cluster solution depending on choice of basis splines.  It may be that using Thin Plate Splines rather than Cubic Regression Splines may change the clusters somewhat. 
+
+Alternatively, there are other methods for determining clusters.  Hitchock, Booth, and Casella (2007) noted important differences in clusters of smooth functional data between medoid-based clusters and those created using hierarchical clustering. Allowing the number of clusters to change may also be interesting to examine in future work.
+
+Finally, it may be necessary to include all 16 Elo measurements to obtain similar clusters. An interesting question asked by fans, decision makers, and others associated with teams during the NFL season is how long it takes to identify whether a team is a contender or not. If cluster solutions on smoothed estimates of 10 Elo ratings were similar to the 16-game cluster solutions, it may indicate that team behavior changes more radically at the beginning of the season than at the end, when much is known about them. 
+
+
+\pagebreak
+
+
+\begin{thebibliography}
+
+\bibitem{glickman} 
+Glickman, Mark E. and Jones, Albyn (1999). 
+"Rating the Chess Rating System". 
+\textit{Chance}. pp.21-28.
+ 
+\bibitem{silver}
+Silver,Nate (2014).
+"Introducing NFL Elo Ratings"
+\\\texttt{https://fivethirtyeight.com/features/introducing-nfl-elo-ratings/}
+
+\bibitem{blog}
+Sankar, Krishna. (2015). 
+"THE ART OF NFL RANKING, THE ELO ALGORITHM AND FIVETHIRTYEIGHT"
+\texttt{https://doubleclix.wordpress.com/2015/01/20/the-art-of-nfl-ranking-the-elo-algorithm-and-fivethirtyeight/}
+ 
+\bibitem{knuthwebsite} 
+Knuth: Computers and Typesetting,
+\\\texttt{http://www-cs-faculty.stanford.edu/\~{}uno/abcde.html}
+
+
+\bibitem{hitchclust}
+Hitchcock, David B., Casella, George, and Booth, James G. (2006).
+"Improved Estimation of Dissimilarities by Presmoothing Functional Data"
+\textit{Journal of the American Statistical Association}
+pp.211-222. 
+
+\bibitem{hitchdis}
+Hitchcock, David B., Booth, James G., and Casella, George. (2007). 
+"The Effect of Pre-Smoothing Functional Data on Cluster Analysis"
+\textit{The Journal of Statistical Computation and Simulation}
+pp. 1043-1055. 
+
+\bibitem{medoid}
+Maechler, M., Rousseeuw, P., Struyf, A., Hubert, M., Hornik, K.(2017).  cluster: Cluster Analysis
+  Basics and Extensions. R package version 2.0.6.
+
+\bibitem{R Core Team}
+ R Core Team (2017). R: A language and environment for statistical computing. R Foundation for
+  Statistical Computing, Vienna, Austria. URL https://www.R-project.org/.
+
+\end{thebibliography}
+
+\end{document}
+
+
+
+
+
+
+
+
+
+

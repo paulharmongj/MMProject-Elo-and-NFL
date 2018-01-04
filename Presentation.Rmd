@@ -76,6 +76,17 @@ pam1 <- pam(as.dist(gam_distances), metric = "euclidean", k = 4)
 
 ```
 
+##Introduction: What's the Big Deal?
+
+My goal was to analyze trends in NFL team wining/losing behavior over time. The NFL is supposed to have __parity__, meaning that good teams eventually become bad teams and vice versa. But that isn't always the case in the short term - say, 20 year periods. The Bills haven't made the playoffs in 18 years. The Patriots have missed the playoffs just three times in that span.
+
+The goal started as simply trying to cluster teams based on their behavior during the season, as ranked by their Elo rating. (We'll get to that...). However, several other questions quickly arose:
+
++ Do you need to know about all 16 games to classify a team's behavior during the season? Or do teams "reveal themselves" before the season is totally over?
++ How sensitive are clusters to smoothing bases?
++ How many clusters should there be? I think 4, but that's a totally subjective starting point. 
++ How sensitive are clusters to the clustering method? (Hierarchical vs. Medoid-based)
+
 
 ##What Are Elo Ratings?
 Elo ratings are used by FiveThirtyEight to predict the outcome of head-to-head matchups between NFL teams. They were originally developed for prediction of chess matches but have been extended to sports analytics.
@@ -85,6 +96,13 @@ Elo ratings are used by FiveThirtyEight to predict the outcome of head-to-head m
 + Can be interpreted as point spreads for matchups (divide difference by 25 to get spread)
 + Average Elo is 1500 for an NFL team, and they are calculated prior to every game
 
+##Elo Ratings: In Depth
+
+In general, an Elo rating can be calulated as a function of three things: a __Previous Elo Score__, a __Per-Game Weighting Factor__, and a __Margin of Victory Factor__.  The cool feature of Elo ratings is that they can reflect the increased effect of a single game during a 16-game NFL season as compared to an 82-game NBA season, or 144-game MLB season. 
+
+__A General Elo Formula:__
+$$ R_t = R_{t-1}+ K*V*M_{ij}(S_{ij}-\mu_{ij}) $$
+
 
 ##Why Do We Care About Classifying Elo Ratings?
 Team decision makers may want to develop a sense for the type of team that they have, given that not all teams realistically have a chance at  winning a championship in every year. Sorry, Broncos and Browns fans...
@@ -92,7 +110,8 @@ Team decision makers may want to develop a sense for the type of team that they 
 + We want to make __comparisons__ between different teams in different seasons. 
 + Allows for assessment of team __parity__ over time. 
 
-__Goal__: To __smooth__ season-long measurements of Elo ratings for each NFL team and __cluster__ team-year Elos into 4 groups.  Research by Hitchcock, Booth, and Casella (2007) indicates that smoothing improves cluster fits.
+__Goal__: To __smooth__ season-long measurements of Elo ratings for each NFL team and __cluster__ team-year Elos into 4 groups.  Research by Hitchcock, Booth, and yes, _that_ George Casella (2007) indicates that smoothing improves cluster fits.
+
 
 ##The Data
 We have __32 teams__ with 16 games per season over 15 seasons, leading to 480 curves that need to be smoothed with GAMs. Each team/year combination is considered independent. 

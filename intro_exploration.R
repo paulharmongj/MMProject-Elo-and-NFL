@@ -115,7 +115,15 @@ gam_Wide <- function(vector, gam.type = 'cs', max.df = 16){
   
 return(x)}
 
+gam_AIC <- function(vector, gam.type = 'cs', max.df = 16){
+  game <- 1:16
+  #take the wide dataset
+  x <- gam(unlist(vector) ~ s(game, k = max.df, bs = gam.type))
+  return(AIC(x))}
+
+
 gam_list <- apply(x_wide[,-c(1,2)],1,gam_Wide) #returns a list of the stuff you need
+aic_list <- apply(x_wide[,-c(1,2)],1,gam_AIC) #returns a list of AICs for GAMs
 names(gam_list) <- interaction(x_wide$season,x_wide$team)
 x_wide$teamyear <- interaction(x_wide$season,x_wide$team)
 #let's make a data frame of predicted gams
