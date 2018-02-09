@@ -103,6 +103,13 @@ In general, an Elo rating can be calulated as a function of three things: a __Pr
 __A General Elo Formula:__
 $$ R_t = R_{t-1}+ K*V*M_{ij}(S_{ij}-\mu_{ij}) $$
 
+##Calculating Elo Ratings For NFL vs. Other Sports
+
+In the NFL, there are only 16 games. Compare that to the NBA with 82 games or the MLB with 162 games. Because of this, each game counts more towards a team's Elo rating. Whereas an embarassing loss might hurt both an NBA and NFL team, it will cost the NFL team more Elo points. 
+
+![Tom Brady, after a loss]("tbb.jpg")
+
+
 
 ##Why Do We Care About Classifying Elo Ratings?
 Team decision makers may want to develop a sense for the type of team that they have, given that not all teams realistically have a chance at  winning a championship in every year. Sorry, Broncos and Browns fans...
