@@ -103,11 +103,13 @@ In general, an Elo rating can be calulated as a function of three things: a __Pr
 __A General Elo Formula:__
 $$ R_t = R_{t-1}+ K*V*M_{ij}(S_{ij}-\mu_{ij}) $$
 
-##Calculating Elo Ratings For NFL vs. Other Sports
+##Calculating Elo Ratings For NFL vs. Other Sports: The K Factor
 
 In the NFL, there are only 16 games. Compare that to the NBA with 82 games or the MLB with 162 games. Because of this, each game counts more towards a team's Elo rating. Whereas an embarassing loss might hurt both an NBA and NFL team, it will cost the NFL team more Elo points. 
 
-![Tom Brady, after a loss]("tbb.jpg")
+According to FiveThirtyEight, the optimal K value in the NFL is 20. K was initially set to 10 when ELO was developed for chess. 
+
+![Tom Brady, after a loss](tbb.jpg)
 
 
 
