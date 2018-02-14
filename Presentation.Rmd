@@ -1,8 +1,8 @@
 ---
 title: "Clustering GAM-Smoothed NFL Elo Ratings"
-subtitle: "STAT 448: Mixed Models"
+subtitle: "Something about Walking, Chalking, and Talking"
 author: "Paul Harmon"
-date: "Fall 2017"
+date: "Spring 2018"
 output:
   beamer_presentation:
     theme: "CambridgeUS"
@@ -83,9 +83,9 @@ My goal was to analyze trends in NFL team wining/losing behavior over time. The 
 The goal started as simply trying to cluster teams based on their behavior during the season, as ranked by their Elo rating. (We'll get to that...). However, several other questions quickly arose:
 
 + Do you need to know about all 16 games to classify a team's behavior during the season? Or do teams "reveal themselves" before the season is totally over?
-+ How sensitive are clusters to smoothing bases?
++ How sensitive are clusters to smoothing bases and the clustering algorithm? (Hierarchical vs. Medoid Based)
 + How many clusters should there be? I think 4, but that's a totally subjective starting point. 
-+ How sensitive are clusters to the clustering method? (Hierarchical vs. Medoid-based)
+
 
 
 ##What Are Elo Ratings?
@@ -109,6 +109,8 @@ In the NFL, there are only 16 games. Compare that to the NBA with 82 games or th
 
 According to FiveThirtyEight, the optimal K value in the NFL is 20. K was initially set to 10 when ELO was developed for chess. 
 
+##For Dan
+Sometimes, it's worthwhile to stop talking about math and just appreciate how much it hurts to be a Patriots fan...
 ![Tom Brady, after a loss](tbb.jpg)
 
 
@@ -121,11 +123,16 @@ Team decision makers may want to develop a sense for the type of team that they 
 
 __Goal__: To __smooth__ season-long measurements of Elo ratings for each NFL team and __cluster__ team-year Elos into 4 groups.  Research by Hitchcock, Booth, and yes, _that_ George Casella (2007) indicates that smoothing improves cluster fits.
 
+## Functional Data Analysis
+
+__Functional Data__: Some data, especially over time, can be be expressed as a *function* of some explanatory variable. If data represent measurements of a continuous trend, we try to estimate it. 
+![Functional Data](figure/funky.png)
+
 
 ##The Data
-We have __32 teams__ with 16 games per season over 15 seasons, leading to 480 curves that need to be smoothed with GAMs. Each team/year combination is considered independent. 
+We have __32 teams__ with 16 games per season over 15 seasons, leading to 480 curves that need to be smoothed with GAMs. Each team/year combination is considered independent.
 
-```{r plot_elo, eval = TRUE, fig.align = 'center', fig.width = 8, fig.height = 4}
+```{r plot_elo, eval = TRUE, fig.align = 'center', fig.width = 7, fig.height = 3}
 ggplot(filter(x_sort, teamyear %in% c('2012.DEN','2007.NE','2008.DET','2016.NE'))) + 
   geom_line(aes(x = GAME, y = elo, group = teamyear,col = teamyear),lwd = 2) +
   theme_bw() + xlab("Game") + ylab("Elo Rating") + ggtitle("Four Teams' Elo Ratings") + 
@@ -133,9 +140,39 @@ ggplot(filter(x_sort, teamyear %in% c('2012.DEN','2007.NE','2008.DET','2016.NE')
 ```
 
 
+##Tools for Smoothing: GAMs
+One could use a linear regression model to smooth noisy functions in the data, but this may over-linearize the relationship. Similarly, fitting a polynomial may overfit the data or require too many parameters to estimate. A more parsimonious solution is to fit a GAM, which estimates smooth functions of the data. 
+
+The next slide compares a GAM smooth to a linear and 5th order polynomial. You could go so far as to fit a 15th order polynomial here since we have 16 data points.  
+
+##GAM Comparison
+
+```{r, fig.align = 'center', fig.width = 7, fig.height = 5}
+x <- predict(gam_list[[472]])
+model <- lm(x ~ game)
+mod_poly <- lm(x ~ poly(game, 5))
+
+plot(1:16,predict(gam_list[[472]]), type = "l", xlab = "Game", ylab = "Elo", lwd = 2, col = "red3", ylim = c(1370, 1550))
+points(1:16, x_wide[472,-c(1,2,19)], col = "green3", pch = 18, cex = 1.2)
+lines(1:16,predict(model), lwd = 2, lty = 2, col = "gray30")
+lines(1:16, predict(mod_poly), lwd = 2, col = "purple")
+title("New York Jets 2016 Data vs. Smooth GAM")
+```
+
+
+##Things to Think About
+
+GAMS rely on a choice of basis function:
+
++ **Thin Plate **: Doesn't require knots - minimizes distance between data and predicted values with 'wiggliness' penalty term
++ **Cubic Regression **: Fits cubic spline to the data on a set of partitions to the data 
++ Other options.... this could probably be a talk in and of itself
+
+**Effective Degrees of Freedom**: You can allow the GAM to estimate a maximum wiggliness. More EDF results in more wiggle and fewer EDF looks more linear.   
+
 ##GAM-Smoothed Estimates
 
-+ Elo Ratings can be noisy! It might be better to estimate a mean trend. 
++ Elo Ratings can be a bit noisy! It might be better to estimate a mean trend. 
 + I used GAMS to estimate smooth versions of these noisy trends in Elo.
 
 __A Very Complicated Model: __ 
@@ -163,6 +200,14 @@ p_values <- sapply(gam_list, pval_get)
 summary(p_values)
 ```
 
+## ##Functional Data Clustering
+We can then take these curves and calculate distances between each of the GAM smoothers. We can generate a 4-cluster solution based on a technique called __Partitioning Around Medoids__ (PAM). 
+The Idea: 
+
++ Determine 4 "medoid" GAM fits
++ For each GAM, figure out which medoid is closest - that's the cluster that each observation goes in
+
+
 
 ##Functional Data clustering: 4-Cluster Solution
 __Contenders__: 2010 Baltimore Ravens, __Status Quo__: 2010 Miami Dolphins, __Pretenders__: 2009 Buffalo Bills, __Loveable Losers__: 2008 Oakland Raiders
@@ -177,24 +222,12 @@ ggplot(filter(x_sort, teamyear %in% pam1$medoids)) +
 
 ```
 
+##Some Interesting Team Results
+```{r}
+pander(table(x_wide$team,pam1$clustering)[c(4,10,21,23),])
+```
 
-##Selected References
-
-Glickman, Mark E. and Jones, Albyn (1999)."Rating the Chess Rating System". _Chance_. pp.21-28.
-
-Silver,Nate (2014). "Introducing NFL Elo Ratings" _https://fivethirtyeight.com/features/introducing-nfl-elo-ratings_
-
-Hitchcock, David B., Booth, James G., and Casella, George. (2007). "The Effect of Pre-Smoothing Functional Data on Cluster Analysis." _The Journal of Statistical Computation and Simulation_. 
-pp. 1043-1055.
-
-Wood, Simon.(2017). _Generalized Additive Models: An Introduction with R_. Ed 2.Chapman and Hall/CRC. 
-
-
-##Questions
-
-![ ](figure/siemian.jpg)
-
-##Supplementary Slides
+##Long Term Elo Trends 
 Why not model long-term trends? We could ignore the fact that the Elos are normalized and try to model the long-term trends if we wanted to. 
 ```{r, warning = FALSE, message = FALSE, fig.align = 'center', fig.height = 4}
 plot(x_np$date[x_np$team == "DEN"],x_np$elo[x_np$team == "DEN"], type = "p", xlab = "Year", ylab = "ELO", pch = 20, col = "orange2")
@@ -218,23 +251,33 @@ legend('bottomright', legend = c("TP","CS","DS","CR"), fill = c("blue3","red","p
 ```
 
 
-##Some Interesting Team Results
-```{r}
-pander(table(x_wide$team,pam1$clustering)[c(4,10,21,23),])
-```
+## Do Teams Reveal Themselves in 10-games?
 
-##Functional Data Clustering
-We can then take these curves and calculate distances between each of the GAM smoothers. We can generate a 4-cluster solution based on a technique called __Partitioning Around Medoids__ (PAM). 
-The Idea: 
+## Do basis functions really matter? 
 
-+ Determine 4 "medoid" GAM fits
-+ For each GAM, figure out which medoid is closest - that's the cluster that each observation goes in
+## Does smoothing really matter? 
 
-##Why Smooth?
-Goal: To __smooth__ season-long measurements of Elo ratings for each NFL team and __cluster__ team-year Elos into 4 groups.  Research by Hitchcock, Booth, and Casella (2007) indicates that smoothing improves cluster fits. 
+## How much do clustering algorithms matter? 
 
-```{r, fig.align = 'center', fig.width = 6, fig.height = 4}
-plot(1:16,predict(gam_list[[472]]), type = "l", xlab = "Game", ylab = "Elo", lwd = 2, col = "red3")
-points(1:16, x_wide[472,-c(1,2,19)], col = "green3", pch = 18, cex = 1.2)
-title("New York Jets 2016 Data vs. Smooth GAM")
-```
+
+
+
+##Selected References
+
+Glickman, Mark E. and Jones, Albyn (1999)."Rating the Chess Rating System". _Chance_. pp.21-28.
+
+Silver,Nate (2014). "Introducing NFL Elo Ratings" _https://fivethirtyeight.com/features/introducing-nfl-elo-ratings_
+
+Hitchcock, David B., Booth, James G., and Casella, George. (2007). "The Effect of Pre-Smoothing Functional Data on Cluster Analysis." _The Journal of Statistical Computation and Simulation_. 
+pp. 1043-1055.
+
+Wood, Simon.(2017). _Generalized Additive Models: An Introduction with R_. Ed 2.Chapman and Hall/CRC. 
+
+
+##Questions
+
+![The dude himself... Trevor Siemian](figure/siemian.jpg)
+
+
+
+
