@@ -208,7 +208,6 @@ The Idea:
 + For each GAM, figure out which medoid is closest - that's the cluster that each observation goes in
 
 
-
 ##Functional Data clustering: 4-Cluster Solution
 __Contenders__: 2010 Baltimore Ravens, __Status Quo__: 2010 Miami Dolphins, __Pretenders__: 2009 Buffalo Bills, __Loveable Losers__: 2008 Oakland Raiders
 
@@ -251,13 +250,65 @@ legend('bottomright', legend = c("TP","CS","DS","CR"), fill = c("blue3","red","p
 ```
 
 
-## Do Teams Reveal Themselves in 10-games?
+
 
 ## Do basis functions really matter? 
+```{r}
 
-## Does smoothing really matter? 
+x_wide <- x_sort[,c(2,3,4,7)]%>% spread(key = GAME, value = elo) #check it out I put in a pipe
+game <- 1:16
+#x <- gam(unlist(x_wide[1,-c(1,2)])~s(game, k=4), bs = 'tp')
+gam_Wide <- function(vector, gam.type = 'tp', max.df = 16){
+  #create game variable
+  game <- 1:16
+  #takes a wide dataset (remove name and year first)
+  x <- gam(unlist(vector) ~ s(game, k = max.df))
+  
+return(x)}
 
-## How much do clustering algorithms matter? 
+gam_list <- apply(x_wide[,-c(1,2)],1,gam_Wide) #returns a list of the stuff you need
+names(gam_list) <- interaction(x_wide$season,x_wide$team)
+x_wide$teamyear <- interaction(x_wide$season,x_wide$team)
+#let's make a data frame of predicted gams
+pred_mat <- matrix(0, nrow = length(gam_list), ncol = 16)
+for(j in 1:length(gam_list)){
+pred_mat[j,] <- predict(gam_list[[j]])  
+}
+rownames(pred_mat) <- names(gam_list)
+
+gam_distances <- metric.lp(pred_mat)
+
+#let's go ahead and try some hierarchical clustering
+library(mclust)
+#is there a way to do medoid-based clustering?
+library(cluster)
+pam2 <- pam(as.dist(gam_distances), metric = "euclidean", k = 4)
+
+pander(table(pam2$medoids))
+pander(table(pam2$clustering))
+
+
+```
+##Different Basis Functions
+```{r}
+x_wide$teamyear <- interaction(x_wide$season,x_wide$team)
+
+ggplot(filter(x_sort, teamyear %in% pam2$medoids)) + 
+  geom_line(aes(x = GAME, y = elo, group = teamyear,col = teamyear),lwd = 1.2) +
+  theme_bw() + xlab("Game") + ylab("Elo Rating") + ggtitle("Medoid Elo Ratings") + 
+  scale_color_manual(values=c("orange", "lightblue", "red","blue4"))
+
+```
+
+
+
+## I have no answers. Just more questions. 
+
++ Good ways to compare cluster solutions? 
++ Does smoothing really matter with these data? 
++ How much do clustering algorithms matter? 
++ Do Teams Reveal Themselves in 10-games?
+
 
 
 
@@ -273,6 +324,7 @@ pp. 1043-1055.
 
 Wood, Simon.(2017). _Generalized Additive Models: An Introduction with R_. Ed 2.Chapman and Hall/CRC. 
 
+Anderson, Douglas S.(2016). "clustering NFL Quarterbacks using QBR Distributions" _Master's Writing Project_. Montana State University Department of Mathematical Sciences. 
 
 ##Questions
 
